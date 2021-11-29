@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using FastBuilderApp;
+using BenchBuild;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
