@@ -9,6 +9,9 @@ using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Graph;
 
+/// <summary>
+/// Simple hosting of BuildManager from msbuild
+/// </summary>
 class Builder
 {
     private readonly ProjectCollection _projectCollection;
