@@ -5,16 +5,21 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using BenchBuild;
+using BuildProcess;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Locator;
 using Microsoft.Build.Logging;
 
-// BEGIN
-// ------------------------------------------------------------------------------------------------------------------------
-DumpHeader("Generate Projects");
-var rootProject = ProjectGenerator.Generate();
-Console.WriteLine($"RootProject {rootProject}");
+// Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
+// MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
+if (args.Length > 0 && args.Any(x => x.StartsWith("/nodemode") || x.StartsWith("/nologo")))
+{
+    var exitCode = BuildProcessApp.Run(args);
+    Environment.Exit(exitCode);
+    return;
+}
 
+// BEGIN
 // ------------------------------------------------------------------------------------------------------------------------
 //foreach (var instance in MSBuildLocator.QueryVisualStudioInstances())
 //{
@@ -24,9 +29,17 @@ var latest = MSBuildLocator.QueryVisualStudioInstances().First(x => x.Version.Ma
 MSBuildLocator.RegisterInstance(latest);
 
 // ------------------------------------------------------------------------------------------------------------------------
+DumpHeader("Generate Projects");
+var rootProject = ProjectGenerator.Generate();
+Console.WriteLine($"RootProject {rootProject}");
+
+// ------------------------------------------------------------------------------------------------------------------------
 DumpHeader("Load Projects");
 var clock = Stopwatch.StartNew();
-var builder = new Builder(rootProject);
+var builder = new Builder(rootProject)
+{
+    UseGraph = true
+};
 Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
 
 // ------------------------------------------------------------------------------------------------------------------------

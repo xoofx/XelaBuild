@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Build.Construction;
 
 namespace BenchBuild;
 
@@ -35,7 +36,7 @@ public class ProjectGenerator
         DumpProject(_rootProject, 0);
     }
 
-    public static string Generate(string? projectsRootFolder = null, ProjectGeneratorOptions? options = null)
+    public static string Generate(string projectsRootFolder = null, ProjectGeneratorOptions options = null)
     {
         var rootFolder = projectsRootFolder ?? Path.Combine(Environment.CurrentDirectory, "projects");
         var projectGenerator = new ProjectGenerator(rootFolder);
