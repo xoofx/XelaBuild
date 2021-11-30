@@ -61,7 +61,6 @@ public class ProjectGenerator
     private void Generate(ProjectGeneratorOptions options)
     {
         CreateProjectStructure(options);
-
     }
 
     private void CreateProjectStructure(ProjectGeneratorOptions options)
@@ -129,13 +128,21 @@ public class ProjectGenerator
         {
             WriteProject(project);
         }
+        WriteDirectoryProps();
     }
 
     private void WriteProject(Project project)
     {
+        
         var projectFolder = Path.Combine(_projectsRootFolder, project.Name);
-        var projectReferences = string.Join("\n", project.Dependencies.Select(x => $"    <ProjectReference Include=\"..\\{x.Name}\\{x.Name}.csproj\" />"));
+        var projectReferences = string.Join("\n", project.Dependencies.Select(x => 
+@$"    <ProjectReference Include=""..\{x.Name}\{x.Name}.csproj"">
+    </ProjectReference>"));
 
+        // This setup for project references seems to not work
+        // Asking here: https://github.com/dotnet/msbuild/issues/7100
+        //        <SetTargetFramework>TargetFramework=net6.0</SetTargetFramework>
+        //        <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
         var csproj = $@"<Project Sdk=""Microsoft.NET.Sdk"">
 
   <PropertyGroup>
@@ -170,6 +177,23 @@ public static class {className} {{
 ";
             File.WriteAllText(csFilePath, NormalizeEOL(csContent));
         }
+    }
+
+    private void WriteDirectoryProps()
+    {
+        var content = @"<Project>
+    <PropertyGroup>
+        <UnityBuildDir>$(MSBuildThisFileDirectory)\build\</UnityBuildDir>
+        <Configuration Condition=""$(Configuration) == ''"">Debug</Configuration>
+        <OutputPath>$(UnityBuildDir)\bin\$(Configuration)\</OutputPath>
+        <OutDir>$(OutputPath)</OutDir>
+        <BaseIntermediateOutputPath>$(UnityBuildDir)\obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
+        <UseCommonOutputDirectory>true</UseCommonOutputDirectory>        
+    </PropertyGroup>
+</Project>
+";
+        var propsFile = Path.Combine(_projectsRootFolder, "Directory.Build.props");
+        File.WriteAllText(propsFile, NormalizeEOL(content));
     }
 
     private static string NormalizeEOL(string content)

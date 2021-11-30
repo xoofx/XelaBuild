@@ -33,6 +33,8 @@ DumpHeader("Generate Projects");
 var rootProject = ProjectGenerator.Generate();
 Console.WriteLine($"RootProject {rootProject}");
 
+//return;
+
 // ------------------------------------------------------------------------------------------------------------------------
 DumpHeader("Load Projects");
 var clock = Stopwatch.StartNew();
