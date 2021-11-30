@@ -25,7 +25,6 @@ class Builder
     private readonly Dictionary<string, string> _globalProperties;
     private readonly BuildManager _manager;
     private string _rootProjectPath;
-    private readonly string _buildProcessExePath;
 
     public Builder(string rootProject)
     {
@@ -35,9 +34,6 @@ class Builder
             { "Platform", "AnyCPU" },
         };
         _projectInstances = new Dictionary<Project, ProjectInstance>();
-        _buildProcessExePath = Environment.GetEnvironmentVariable("MSBUILD_EXE_PATH");
-        // Force MSBUILD_EXE_NAME for out of process
-        //Environment.SetEnvironmentVariable("MSBUILD_EXE_NAME", _buildProcessExePath);
         _manager = new BuildManager();
         _projectCollection = new ProjectCollection(_globalProperties);
         _projects = new Dictionary<string, Project>();
@@ -117,7 +113,7 @@ class Builder
         var parameters = new BuildParameters();
         parameters.Loggers = new List<ILogger>()
         {
-            new ConsoleLogger(LoggerVerbosity.Minimal)
+            //new ConsoleLogger(LoggerVerbosity.Minimal)
         }; //InputResultsCacheFiles = new []{ buildCache },
         parameters.ResetCaches = true; // should it be true? (doesn't affect anything in this benchmark)
 

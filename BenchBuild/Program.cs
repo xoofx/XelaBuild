@@ -51,13 +51,30 @@ builder.Build("Restore");
 Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
 // ------------------------------------------------------------------------------------------------------------------------
-DumpHeader("Build Projects (Benchmark)");
-for (int i = 0; i < 10; i++)
-{
-    //System.IO.File.SetLastWriteTimeUtc(@"C:\code\lunet\lunet\src\Lunet\Program.cs", DateTime.UtcNow);
-    clock.Restart();
-    builder.Build("Build");
-    Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms (ProjectGraph: {builder.TimeProjectGraph}ms)");
+foreach(var (index, kind) in new (int, string)[]
+        {
+            (0, "Build All (Clean)"), 
+            (1, "Build All - 1 C# changed in root"), 
+            (2, "Build All - No Changes"),
+        }) {
+
+    DumpHeader(kind);
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (index == 1)
+        {
+            System.IO.File.SetLastWriteTimeUtc(Path.Combine(Path.GetDirectoryName(rootProject), "LibRootClass.cs"), DateTime.UtcNow);
+        }
+        else if (index == 0)
+        {
+            // Full clean before a build all
+            builder.Build("Clean");
+        }
+        clock.Restart();
+        builder.Build("Build");
+        Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms (ProjectGraph: {builder.TimeProjectGraph}ms)");
+    }
 }
 
 // END
