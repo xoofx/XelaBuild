@@ -50,12 +50,16 @@ clock.Restart();
 builder.Build("Restore");
 Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
+
+var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
+
 // ------------------------------------------------------------------------------------------------------------------------
 foreach(var (index, kind) in new (int, string)[]
         {
             (0, "Build All (Clean)"), 
-            (1, "Build All - 1 C# changed in root"), 
-            (2, "Build All - No Changes"),
+            (1, "Build All - 1 C# file changed in root"),
+            (2, "Build All - 1 C# file changed in leaf"),
+            (3, "Build All - No Changes"),
         }) {
 
     DumpHeader(kind);
@@ -64,7 +68,19 @@ foreach(var (index, kind) in new (int, string)[]
     {
         if (index == 1)
         {
-            System.IO.File.SetLastWriteTimeUtc(Path.Combine(Path.GetDirectoryName(rootProject), "LibRootClass.cs"), DateTime.UtcNow);
+            System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow);
+        }
+        else if (index == 2)
+        {
+            File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
+public static class LibLeafClass {{
+    public static void Run() {{
+        // empty
+    }}
+    public static void Change{i}() {{ }}
+}}
+");
+            //System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), DateTime.UtcNow);
         }
         else if (index == 0)
         {

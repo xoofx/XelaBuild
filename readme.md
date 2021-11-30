@@ -5,6 +5,7 @@ Simple benchmark to test hosting msbuild in a "server" like mode and compile lot
 This is to measure the raw cost of msbuild when compiling a tree of deep projects:
 - Clean, build all
 - Touch 1 C# file in the root project, build all
+- Change 1 C# file affecting ref assemblies in the leaf project, build all
 - No changes, build all
 
 > Disclaimer
