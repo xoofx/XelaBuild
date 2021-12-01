@@ -59,11 +59,6 @@ class Builder
 
     public int Count => _collectionForRestore.LoadedProjects.Count;
 
-
-    public double TimeProjectGraph { get; private set; }
-
-
-
     private ProjectGraph CreateGraph(string rootProjectFile)
     {
         return CreateGraph(rootProjectFile, _collectionForGraph);
@@ -73,18 +68,25 @@ class Builder
     {
         var clock = Stopwatch.StartNew();
         var projectGraph = new ProjectGraph(new []{ new ProjectGraphEntryPoint(rootProjectFile, collection.GlobalProperties)}, collection, CreateProjectInstance);
-        TimeProjectGraph = clock.Elapsed.TotalMilliseconds;
         clock.Restart();
         return projectGraph;
     }
 
-    public void PreBuildCaches()
+    public ProjectGraph PreBuildCaches()
     {
         var graph = CreateGraph(_rootProjectPath);
-        foreach (var node in graph.GraphRoots)
+
+        var mapNodeToTargets = graph.GetTargetLists(null);
+
+        var root = graph.GraphRoots.First();
+
+        foreach(var node in graph.ProjectNodesTopologicallySorted)
         {
-            PreBuildProject(_collectionForGraph, node, true);
+            var targets = mapNodeToTargets[node].ToArray();
+            BuildProjectWithCache(_collectionForGraph, node, node == root, targets);
         }
+
+        return graph;
     }
 
     private static string EnsureDirectory(string directory)
@@ -119,20 +121,19 @@ class Builder
         }
     }
 
-    private void PreBuildProject(ProjectCollection parentCollection, ProjectGraphNode node, bool isRoot)
+    public void BuildProjectWithCache(ProjectGraph graph, params string[] targets)
     {
-        if (!_visitedNodes.Add(node)) return;
+        BuildProjectWithCache(_collectionForGraph, graph.GraphRoots.First(), true, targets);
+    }
 
-        foreach (var subNode in node.ProjectReferences)
-        {
-            PreBuildProject(parentCollection, subNode, false);
-        }
-
+    private void BuildProjectWithCache(ProjectCollection parentCollection, ProjectGraphNode node, bool isRoot, params string[] targets)
+    {
         var parameters = new BuildParameters(parentCollection)
         {
             Loggers = new List<ILogger>()
             {
-                new ConsoleLogger(LoggerVerbosity.Minimal)
+                new ConsoleLogger(LoggerVerbosity.Minimal),
+                new BinaryLogger() { Parameters = "msbuild.binlog"}
             },
             DisableInProcNode = true,
             EnableNodeReuse = true,
@@ -155,12 +156,10 @@ class Builder
         manager.BeginBuild(parameters);
         try
         {
-            Console.WriteLine($"PreBuilding cache for {node.ProjectInstance.FullPath}");
+            Console.WriteLine($"Building {node.ProjectInstance.FullPath}");
             var clock = Stopwatch.StartNew();
 
-            var graph = CreateGraph(node.ProjectInstance.FullPath);
-            var request = new GraphBuildRequestData(graph, new[] { "Build", "GetTargetFrameworks", "GetNativeManifest" });
-            TimeProjectGraph = clock.Elapsed.TotalMilliseconds;
+            var request = new BuildRequestData(node.ProjectInstance, targets);
             clock.Restart();
 
             var submission = manager.PendBuildRequest(request);
@@ -246,7 +245,6 @@ class Builder
 
                 var clock = Stopwatch.StartNew();
                 var request = new BuildRequestData(CreateProjectInstance(_rootProjectPath, _globalProperties, _collectionForRestore), new[] { target });
-                TimeProjectGraph = clock.Elapsed.TotalMilliseconds;
                 clock.Restart();
 
                 var submission = manager.PendBuildRequest(request);

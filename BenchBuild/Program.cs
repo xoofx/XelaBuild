@@ -6,9 +6,7 @@ using System.IO;
 using System.Linq;
 using BenchBuild;
 using BuildProcess;
-using Microsoft.Build.Construction;
 using Microsoft.Build.Locator;
-using Microsoft.Build.Logging;
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
 // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
@@ -35,48 +33,51 @@ Console.WriteLine($"RootProject {rootProject}");
 
 //return;
 
-// ------------------------------------------------------------------------------------------------------------------------
-DumpHeader("Load Projects");
-var clock = Stopwatch.StartNew();
-var builder = new Builder(rootProject)
+RunBenchmark(rootProject);
+
+static void RunBenchmark(string rootProject)
 {
-    UseGraph = true
-};
-Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
-
-// ------------------------------------------------------------------------------------------------------------------------
-DumpHeader("Restore Projects");
-clock.Restart();
-builder.Build("Restore");
-Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
-
-
-var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
-
-// ------------------------------------------------------------------------------------------------------------------------
-//builder.PreBuildCaches();
-
-//return;
-
-foreach(var (index, kind) in new (int, string)[]
-        {
-//            (0, "Build All (Clean)"), 
-//            (1, "Build All - 1 C# file changed in root"),
-//            (2, "Build All - 1 C# file changed in leaf"),
-            (3, "Build All - No Changes"),
-        }) {
-
-    DumpHeader(kind);
-
-    for (int i = 0; i < 10; i++)
+    var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
+    // ------------------------------------------------------------------------------------------------------------------------
+    DumpHeader("Load Projects");
+    var clock = Stopwatch.StartNew();
+    var builder = new Builder(rootProject)
     {
-        if (index == 1)
+        UseGraph = true
+    };
+    Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
+
+    // ------------------------------------------------------------------------------------------------------------------------
+    DumpHeader("Restore Projects");
+    clock.Restart();
+    builder.Build("Restore");
+    Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+
+    // ------------------------------------------------------------------------------------------------------------------------
+    DumpHeader("Build caches");
+    var graph = builder.PreBuildCaches();
+
+    // ------------------------------------------------------------------------------------------------------------------------
+    foreach (var (index, kind) in new (int, string)[]
+            {
+//            (0, "Build All (Clean)"), 
+            (3, "Build All - No Changes"),
+            (1, "Build All - 1 C# file changed in root"),
+//            (2, "Build All - 1 C# file changed in leaf"),
+            })
+    {
+
+        DumpHeader(kind);
+
+        for (int i = 0; i < 10; i++)
         {
-            System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow);
-        }
-        else if (index == 2)
-        {
-            File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
+            if (index == 1)
+            {
+                System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow);
+            }
+            else if (index == 2)
+            {
+                File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
 public static class LibLeafClass {{
     public static void Run() {{
         // empty
@@ -84,19 +85,20 @@ public static class LibLeafClass {{
     public static void Change{i}() {{ }}
 }}
 ");
-            //System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), DateTime.UtcNow);
+                //System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), DateTime.UtcNow);
+            }
+            else if (index == 0)
+            {
+                // Full clean before a build all
+                builder.Build("Clean");
+            }
+            clock.Restart();
+            //builder.Build("Build", true);
+            builder.BuildProjectWithCache(graph, "Build");
+            Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
         }
-        else if (index == 0)
-        {
-            // Full clean before a build all
-            builder.Build("Clean");
-        }
-        clock.Restart();
-        builder.Build("Build", true);
-        Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms (ProjectGraph: {builder.TimeProjectGraph}ms)");
     }
 }
-
 
 // END
 // **************************************************************
