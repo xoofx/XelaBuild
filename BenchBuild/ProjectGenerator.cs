@@ -42,17 +42,17 @@ public class ProjectGenerator
         var projectGenerator = new ProjectGenerator(rootFolder);
         projectGenerator.Generate(options ?? new ProjectGeneratorOptions());
         //projectGenerator.Dump();
-        if (Directory.Exists(projectsRootFolder))
-        {
-            try
-            {
-                Directory.Delete(projectsRootFolder, true);
-            }
-            catch
-            {
-                // ignore
-            }
-        }
+        //if (Directory.Exists(projectsRootFolder))
+        //{
+        //    try
+        //    {
+        //        Directory.Delete(projectsRootFolder, true);
+        //    }
+        //    catch
+        //    {
+        //        // ignore
+        //    }
+        //}
         projectGenerator.WriteAllProjects();
 
         return $"{Path.Combine(projectGenerator._projectsRootFolder, projectGenerator._rootProject.Name, projectGenerator._rootProject.Name)}.csproj"; 

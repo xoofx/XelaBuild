@@ -54,11 +54,15 @@ Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed
 var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
 
 // ------------------------------------------------------------------------------------------------------------------------
+//builder.PreBuildCaches();
+
+//return;
+
 foreach(var (index, kind) in new (int, string)[]
         {
-            (0, "Build All (Clean)"), 
-            (1, "Build All - 1 C# file changed in root"),
-            (2, "Build All - 1 C# file changed in leaf"),
+//            (0, "Build All (Clean)"), 
+//            (1, "Build All - 1 C# file changed in root"),
+//            (2, "Build All - 1 C# file changed in leaf"),
             (3, "Build All - No Changes"),
         }) {
 
@@ -88,10 +92,11 @@ public static class LibLeafClass {{
             builder.Build("Clean");
         }
         clock.Restart();
-        builder.Build("Build");
+        builder.Build("Build", true);
         Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms (ProjectGraph: {builder.TimeProjectGraph}ms)");
     }
 }
+
 
 // END
 // **************************************************************
