@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Build.Experimental.ProjectCache;
 using Microsoft.Build.Logging;
 
 namespace BenchBuild;
@@ -30,6 +34,7 @@ class Builder
     private readonly string _rootFolder;
     private readonly string _buildFolder;
     private readonly string _cacheFolder;
+    private readonly BuildResultCaching _buildResultCaching;
     private Dictionary<Dictionary<string, string>, ProjectCollection> _globalPropertiesToProjectCollection = new(DictionaryComparer.Instance);
 
     public Builder(string rootProject)
@@ -51,8 +56,12 @@ class Builder
         _context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
         _rootProjectPath = rootProject;
         _rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(_rootProjectPath));
-        _buildFolder = EnsureDirectory(Path.Combine(_rootFolder, "build"));
-        _cacheFolder = EnsureDirectory(Path.Combine(_buildFolder, "caches"));
+        _buildFolder = DirectoryHelper.EnsureDirectory(Path.Combine(_rootFolder, "build"));
+        _cacheFolder = DirectoryHelper.EnsureDirectory(Path.Combine(_buildFolder, "caches"));
+        _buildResultCaching = new BuildResultCaching(_cacheFolder);
+
+        // Clear the cache on disk
+        _buildResultCaching.ClearCaches();
     }
 
     public bool UseGraph { get; set; }
@@ -72,38 +81,30 @@ class Builder
         return projectGraph;
     }
 
-    public ProjectGraph PreBuildCaches()
+    public ProjectGraph BuildCache()
     {
         var graph = CreateGraph(_rootProjectPath);
 
         var mapNodeToTargets = graph.GetTargetLists(null);
 
-        var root = graph.GraphRoots.First();
+        var result = BuildParallelWithCache(graph, _collectionForGraph, mapNodeToTargets);
 
-        foreach(var node in graph.ProjectNodesTopologicallySorted)
-        {
-            var targets = mapNodeToTargets[node].ToArray();
-            BuildProjectWithCache(_collectionForGraph, node, node == root, targets);
-        }
+        //var root = graph.GraphRoots.First();
+
+        //foreach(var node in graph.ProjectNodesTopologicallySorted)
+        //{
+        //    var targets = mapNodeToTargets[node].ToArray();
+        //    BuildProjectWithCache(_collectionForGraph, node, node == root, targets);
+        //}
 
         return graph;
-    }
-
-    private static string EnsureDirectory(string directory)
-    {
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return directory;
     }
 
     private string GetBuildCache(ProjectInstance instance)
     {
         // TODO: should take into account the hash of the properties (or use sub folders for some properties e.g like Configuration)
         var projectFileCache = Path.GetFileName(instance.FullPath) + ".cache";
-        var cacheFile = Path.Combine(EnsureDirectory(_cacheFolder), projectFileCache);
+        var cacheFile = Path.Combine(DirectoryHelper.EnsureDirectory(_cacheFolder), projectFileCache);
         return cacheFile;
     }
 
@@ -123,12 +124,12 @@ class Builder
 
     public void BuildProjectWithCache(ProjectGraph graph, params string[] targets)
     {
-        BuildProjectWithCache(_collectionForGraph, graph.GraphRoots.First(), true, targets);
+        BuildProjectWithCache(graph, _collectionForGraph, graph.GraphRoots.First(), targets);
     }
 
-    private void BuildProjectWithCache(ProjectCollection parentCollection, ProjectGraphNode node, bool isRoot, params string[] targets)
+    private BuildParameters CreateParameters(ProjectGraph graph, ProjectCollection projectCollection)
     {
-        var parameters = new BuildParameters(parentCollection)
+        var parameters = new BuildParameters(projectCollection)
         {
             Loggers = new List<ILogger>()
             {
@@ -141,16 +142,25 @@ class Builder
             IsolateProjects = true,
         };
 
-        // We don't store the cache for the root project
-        if (!isRoot)
-        {
-            parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
-        }
+        //// We don't store the cache for the root project
+        //if (node.ReferencingProjects.Count == 0)
+        //{
+        //    parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
+        //}
 
-        if (node.ProjectReferences.Count > 0)
-        {
-            parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
-        }
+        //if (node.ProjectReferences.Count > 0)
+        //{
+        //    parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
+        //}
+
+        // ReSharper disable once InconsistentlySynchronizedField
+        parameters.ProjectCacheDescriptor = ProjectCacheDescriptor.FromInstance(_buildResultCaching, null, graph, null);
+        return parameters;
+    }
+
+    private void BuildProjectWithCache(ProjectGraph graph, ProjectCollection parentCollection, ProjectGraphNode node, params string[] targets)
+    {
+        var parameters = CreateParameters(graph, parentCollection);
 
         using var manager = new BuildManager();
         manager.BeginBuild(parameters);
@@ -170,6 +180,117 @@ class Builder
             manager.EndBuild();
         }
     }
+
+    public Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, params string[] targets)
+    {
+        var targetsPerNode = projectGraph.GetTargetLists(targets);
+        return BuildParallelWithCache(projectGraph, _collectionForGraph, targetsPerNode);
+    }
+
+    private Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, ProjectCollection projectCollection, IReadOnlyDictionary<ProjectGraphNode, ImmutableList<string>> targetsPerNode)
+    {
+        // NOTE: code adapted from BuildManager.cs
+        // Copyright (c) Microsoft. All rights reserved.
+        // Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
+        var waitHandle = new AutoResetEvent(true);
+        var graphBuildStateLock = new object();
+
+        var blockedNodes = new HashSet<ProjectGraphNode>(projectGraph.ProjectNodes);
+        var finishedNodes = new HashSet<ProjectGraphNode>(projectGraph.ProjectNodes.Count);
+        var buildingNodes = new Dictionary<BuildSubmission, ProjectGraphNode>();
+        var resultsPerNode = new Dictionary<ProjectGraphNode, BuildResult>(projectGraph.ProjectNodes.Count);
+        Exception submissionException = null;
+
+        // Build node in //
+        using var buildManager = new BuildManager();
+        var parameters = CreateParameters(projectGraph, projectCollection);
+        parameters.MaxNodeCount = 10;
+        buildManager.BeginBuild(parameters);
+
+        try
+        {
+            while (blockedNodes.Count > 0 || buildingNodes.Count > 0)
+            {
+                waitHandle.WaitOne();
+
+                // When a cache plugin is present, ExecuteSubmission(BuildSubmission) executes on a separate thread whose exceptions do not get observed.
+                // Observe them here to keep the same exception flow with the case when there's no plugins and ExecuteSubmission(BuildSubmission) does not run on a separate thread.
+                if (submissionException != null)
+                {
+                    throw submissionException;
+                }
+
+                lock (graphBuildStateLock)
+                {
+                    var unblockedNodes = blockedNodes
+                        .Where(node => node.ProjectReferences.All(projectReference => finishedNodes.Contains(projectReference)))
+                        .ToList();
+
+                    foreach (var node in unblockedNodes)
+                    {
+                        var targetList = targetsPerNode[node];
+                        if (targetList.Count == 0)
+                        {
+                            // An empty target list here means "no targets" instead of "default targets", so don't even build it.
+                            finishedNodes.Add(node);
+                            blockedNodes.Remove(node);
+
+                            waitHandle.Set();
+
+                            continue;
+                        }
+
+                        var request = new BuildRequestData(node.ProjectInstance, targetList.ToArray());
+
+                        // Make sure that the existing result is deleted before (re) building it
+                        var buildProjectKey = BuildResultCaching.GetProjectBuildKeyFromBuildRequest(request);
+                        _buildResultCaching.DeleteResult(buildProjectKey);
+
+                        // TODO Tack onto the existing submission instead of pending a whole new submission for every node
+                        // Among other things, this makes BuildParameters.DetailedSummary produce a summary for each node, which is not desirable.
+                        // We basically want to submit all requests to the scheduler all at once and describe dependencies by requests being blocked by other requests.
+                        // However today the scheduler only keeps track of MSBuild nodes being blocked by other MSBuild nodes, and MSBuild nodes haven't been assigned to the graph nodes yet.
+                        var innerBuildSubmission = buildManager.PendBuildRequest(request);
+                        buildingNodes.Add(innerBuildSubmission, node);
+                        blockedNodes.Remove(node);
+                        var result = innerBuildSubmission.Execute();
+
+                        lock (graphBuildStateLock)
+                        {
+                            if (submissionException == null && result.Exception != null)
+                            {
+                                submissionException = result.Exception;
+                            }
+
+                            ProjectGraphNode finishedNode = buildingNodes[innerBuildSubmission];
+
+                            finishedNodes.Add(finishedNode);
+                            buildingNodes.Remove(innerBuildSubmission);
+
+                            resultsPerNode.Add(finishedNode, innerBuildSubmission.BuildResult);
+
+                            // Save the results only for projects that have references to it
+                            if (node.ReferencingProjects.Count > 0)
+                            {
+                                _buildResultCaching.AddAndSaveResult(buildProjectKey, innerBuildSubmission.BuildResult);
+                            }
+                        }
+
+                        waitHandle.Set();
+                    }
+                }
+            }
+        } 
+        finally
+        {
+            buildManager.EndBuild();
+        }
+
+
+        return resultsPerNode;
+    }
+
 
     public void Build(string target, bool useCache = false)
     {
@@ -272,6 +393,114 @@ class Builder
     private static ProjectInstance CreateProjectInstance(string projectPath, Dictionary<string, string> globalproperties, ProjectCollection projectcollection)
     {
         return new ProjectInstance(projectPath, globalproperties, projectcollection.DefaultToolsVersion, projectcollection);
+    }
+
+
+    private class BuildResultCaching : ProjectCachePluginBase
+    {
+        private readonly string _cacheFolder;
+
+        public BuildResultCaching(string cacheFolder)
+        {
+            _cacheFolder = DirectoryHelper.EnsureDirectory(cacheFolder);
+            BuildResults = new Dictionary<string, BuildResult>();
+        }
+
+        private Dictionary<string, BuildResult> BuildResults { get; }
+
+        public void ClearCaches()
+        {
+            lock (BuildResults)
+            {
+                BuildResults.Clear();
+            }
+
+            foreach (var file in Directory.EnumerateFiles(_cacheFolder))
+            {
+                File.Delete(file);
+            }
+        }
+
+        public void AddAndSaveResult(string projectBuildKey, BuildResult result)
+        {
+            lock (BuildResults)
+            {
+                BuildResults.Add(projectBuildKey, result);
+            }
+            var fileToSave = GetCacheFilePath(projectBuildKey);
+            using var stream = File.OpenWrite(fileToSave);
+            BuildResultHelper.Serialize(result, stream);
+        }
+
+        public bool TryGetOrLoadResult(string projectBuildKey, out BuildResult buildResult)
+        {
+            lock (BuildResults)
+            {
+                if (BuildResults.TryGetValue(projectBuildKey, out buildResult))
+                {
+                    return true;
+                }
+            }
+            var fileToRead = GetCacheFilePath(projectBuildKey);
+            if (File.Exists(fileToRead))
+            {
+                using var stream = File.OpenRead(fileToRead);
+                buildResult = BuildResultHelper.Deserialize(stream);
+                lock (BuildResults)
+                {
+                    BuildResults.Add(projectBuildKey, buildResult);
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private string GetCacheFilePath(string projectBuildKey)
+        {
+            return Path.Combine(_cacheFolder, $"{projectBuildKey}.cache");
+        }
+
+
+        public void DeleteResult(string projectBuildKey)
+        {
+            lock (BuildResults)
+            {
+                BuildResults.Remove(projectBuildKey);
+            }
+            var fileToDelete = Path.Combine(_cacheFolder, $"{projectBuildKey}.cache");
+            File.Delete(fileToDelete);
+        }
+
+        public static string GetProjectBuildKeyFromBuildRequest(BuildRequestData buildRequestData)
+        {
+            return Path.GetFileName(buildRequestData.ProjectFullPath);
+        }
+
+        public override Task BeginBuildAsync(CacheContext context, PluginLoggerBase logger, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        public override Task<CacheResult> GetCacheResultAsync(BuildRequestData buildRequest, PluginLoggerBase logger, CancellationToken cancellationToken)
+        {
+            //buildRequest.ProjectFullPath
+
+            var projectBuildKey = GetProjectBuildKeyFromBuildRequest(buildRequest);
+            lock (BuildResults)
+            {
+                if (TryGetOrLoadResult(projectBuildKey, out var buildResult))
+                {
+                    return Task.FromResult(CacheResult.IndicateCacheHit(buildResult));
+                }
+                return Task.FromResult(CacheResult.IndicateNonCacheHit(CacheResultType.CacheMiss));
+            }
+        }
+
+        public override Task EndBuildAsync(PluginLoggerBase logger, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private class DictionaryComparer : IEqualityComparer<Dictionary<string, string>>

@@ -55,7 +55,9 @@ static void RunBenchmark(string rootProject)
 
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Build caches");
-    var graph = builder.PreBuildCaches();
+    clock.Restart();
+    var graph = builder.BuildCache();
+    Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (index, kind) in new (int, string)[]
@@ -69,7 +71,7 @@ static void RunBenchmark(string rootProject)
 
         DumpHeader(kind);
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 1; i++)
         {
             if (index == 1)
             {
