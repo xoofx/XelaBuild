@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Build.Locator;
@@ -9,10 +11,8 @@ public static class BuildProcessApp
 {
     public static int Run(string[] args)
     {
-        var latest = MSBuildLocator.QueryVisualStudioInstances().First(x => x.Version.Major == 6);
-        MSBuildLocator.RegisterInstance(latest);
-
-        var assemblyPath = Path.Combine(latest.MSBuildPath, "MSBuild.dll");
+        var msbuildPath = RegisterCustomMsBuild();
+        var assemblyPath = Path.Combine(msbuildPath, "MSBuild.dll");
 
         var assembly = Assembly.LoadFile(assemblyPath);
 
@@ -22,4 +22,31 @@ public static class BuildProcessApp
 
         return (int)mainMethod.Invoke(null, new object[] { args });
     }
+
+    public static string RegisterCustomMsBuild()
+    {
+        var latest = MSBuildLocator.QueryVisualStudioInstances().First(x => x.Version.Major == 6);
+
+        Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
+
+        // Custom registration with our custom msbuild
+        var msbuildPath = @"C:\work\dotnet\msbuild\artifacts\bin\MSBuild\Release\net6.0\";
+        foreach (KeyValuePair<string, string> keyValuePair in new Dictionary<string, string>()
+                 {
+                     ["MSBUILD_EXE_PATH"] = msbuildPath + "MSBuild.dll",
+                     ["MSBuildExtensionsPath"] = msbuildPath,
+                     ["MSBuildSDKsPath"] = latest.MSBuildPath + "Sdks"
+                 })
+        {
+            Environment.SetEnvironmentVariable(keyValuePair.Key, keyValuePair.Value);
+        }
+
+        MSBuildLocator.RegisterMSBuildPath(new[]
+        {
+            msbuildPath,
+        });
+        return msbuildPath;
+    }
+
+
 }

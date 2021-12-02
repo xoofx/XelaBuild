@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -23,15 +24,13 @@ if (args.Length > 0 && args.Any(x => x.StartsWith("/nodemode") || x.StartsWith("
 //{
 //    Console.WriteLine($"{instance.Name} {instance.Version} {instance.VisualStudioRootPath} {instance.MSBuildPath}");
 //}
-var latest = MSBuildLocator.QueryVisualStudioInstances().First(x => x.Version.Major == 6);
-MSBuildLocator.RegisterInstance(latest);
+BuildProcessApp.RegisterCustomMsBuild();
+//MSBuildLocator.RegisterInstance(latest);
 
 // ------------------------------------------------------------------------------------------------------------------------
 DumpHeader("Generate Projects");
 var rootProject = ProjectGenerator.Generate();
 Console.WriteLine($"RootProject {rootProject}");
-
-//return;
 
 RunBenchmark(rootProject);
 

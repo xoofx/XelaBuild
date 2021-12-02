@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Build.Execution;
 
-namespace BenchBuild;
+namespace UnityProjectCachePluginExtension;
 
 public static class BuildResultHelper
 {

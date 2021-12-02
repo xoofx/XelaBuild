@@ -184,12 +184,15 @@ public static class {className} {{
         var content = @"<Project>
     <PropertyGroup>
         <UnityBuildDir>$(MSBuildThisFileDirectory)\build\</UnityBuildDir>
-        <Configuration Condition=""$(Configuration) == ''"">Debug</Configuration>
+        <Configuration Condition=""'$(Configuration)' == ''"">Debug</Configuration>
         <OutputPath>$(UnityBuildDir)\bin\$(Configuration)\</OutputPath>
         <OutDir>$(OutputPath)</OutDir>
         <BaseIntermediateOutputPath>$(UnityBuildDir)\obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
         <UseCommonOutputDirectory>true</UseCommonOutputDirectory>        
     </PropertyGroup>
+    <ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">
+        <ProjectCachePlugin Include=""$(MSBuildThisFileDirectory)..\UnityProjectCachePluginExtension.dll"" BuildPath =""$(UnityBuildDir)""/>
+    </ItemGroup>
 </Project>
 ";
         var propsFile = Path.Combine(_projectsRootFolder, "Directory.Build.props");

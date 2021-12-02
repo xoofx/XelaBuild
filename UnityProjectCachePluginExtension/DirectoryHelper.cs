@@ -1,11 +1,10 @@
 ﻿using System;
 using System.IO;
 
-namespace BenchBuild;
+namespace UnityProjectCachePluginExtension;
 
 public static class DirectoryHelper
 {
-
     public static string EnsureDirectory(string directory)
     {
         if (directory == null) throw new ArgumentNullException(nameof(directory));
@@ -16,8 +15,4 @@ public static class DirectoryHelper
 
         return directory;
     }
-
-
-
-
 }

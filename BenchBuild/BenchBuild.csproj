@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BuildProcess\BuildProcess.csproj" />
+    <ProjectReference Include="..\UnityProjectCachePluginExtension\UnityProjectCachePluginExtension.csproj" />
   </ItemGroup>
 
 </Project>
