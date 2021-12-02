@@ -183,11 +183,11 @@ public static class {className} {{
     {
         var content = @"<Project>
     <PropertyGroup>
-        <UnityBuildDir>$(MSBuildThisFileDirectory)\build\</UnityBuildDir>
+        <UnityBuildDir>$(MSBuildThisFileDirectory)build\</UnityBuildDir>
         <Configuration Condition=""'$(Configuration)' == ''"">Debug</Configuration>
         <OutputPath>$(UnityBuildDir)\bin\$(Configuration)\</OutputPath>
         <OutDir>$(OutputPath)</OutDir>
-        <BaseIntermediateOutputPath>$(UnityBuildDir)\obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
+        <BaseIntermediateOutputPath>$(UnityBuildDir)obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
         <UseCommonOutputDirectory>true</UseCommonOutputDirectory>        
     </PropertyGroup>
     <ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">
