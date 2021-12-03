@@ -39,7 +39,7 @@ that was forcing the compilation of each projects sequentially and from a single
 build an entire graph of projects in reverse order of topological sort in parallel.
 
 This repo validates the idea by bringing to msbuild a way to use isolated builds on msbuild nodes, so 
-that we can now build caches in // while build projects.
+that we can now build caches in // while building projects.
 
 The performance improvements can be dramatic. For example, for a tree of 100 C# projects (a root project, several layers 
 of child projects, and a single leaf project referenced by all children), the full build of these projects takes:
