@@ -45,9 +45,9 @@ The performance improvements can be dramatic. For example, for a tree of 100 C# 
 of child projects, and a single leaf project referenced by all children), the full build of these projects takes:
 
 - 7s to 9s with Visual Studio/msbuild.
-- 2s with the solution experimented in this repository.
+- 1.5 to 2s with the solution experimented in this repository.
 
-The solution in this experiment brings almost a **speedup factor of x3 in build time**.
+The solution in this experiment brings almost a **speedup factor of x3 to x4 in build time**.
 
 ## Building
 
