@@ -30,7 +30,11 @@ public static class BuildProcessApp
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
 
         // Custom registration with our custom msbuild
+#if DEBUG
+        var msbuildPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\..\..\dotnet\msbuild\artifacts\bin\MSBuild\Debug\net6.0\");
+#else
         var msbuildPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\..\..\dotnet\msbuild\artifacts\bin\MSBuild\Release\net6.0\");
+#endif
         if (!Directory.Exists(msbuildPath))
         {
             throw new InvalidOperationException($"folder {msbuildPath} does not exist");

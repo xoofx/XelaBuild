@@ -18,11 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\Release\net6.0\Microsoft.Build.dll">
-      <CopyLocal>False</CopyLocal>
+    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.dll">
+      <Private>False</Private>
     </Reference>
-    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\Release\net6.0\Microsoft.Build.Framework.dll">
-      <CopyLocal>False</CopyLocal>
+    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.Framework.dll">
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
 

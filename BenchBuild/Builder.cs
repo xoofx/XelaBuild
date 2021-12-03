@@ -25,6 +25,8 @@ using Microsoft.Build.Graph;
 /// </summary>
 class Builder
 {
+    private readonly int MaxMsBuildNodeCount = 10;
+
     private readonly ProjectCollection _collectionForRestore;
     private readonly ProjectCollection _collectionForGraph;
     private readonly EvaluationContext _context;
@@ -135,12 +137,12 @@ class Builder
         {
             Loggers = new List<ILogger>()
             {
-                new ConsoleLogger(LoggerVerbosity.Normal),
-                new BinaryLogger() { Parameters = "msbuild.binlog"}
+                //new ConsoleLogger(LoggerVerbosity.Minimal),
+                //new BinaryLogger() { Parameters = "msbuild.binlog"}
             },
             DisableInProcNode = true,
             EnableNodeReuse = true,
-            MaxNodeCount = 10,
+            MaxNodeCount = MaxMsBuildNodeCount,
             IsolateProjects = true,
         };
 
@@ -210,9 +212,9 @@ class Builder
         // Build node in //
         using var buildManager = new BuildManager();
         var parameters = CreateParameters(projectGraph, projectCollection);
-        parameters.DisableInProcNode = false;
-        parameters.EnableNodeReuse = false;
-        parameters.MaxNodeCount = 1;
+        parameters.DisableInProcNode = true;
+        parameters.EnableNodeReuse = true;
+        parameters.MaxNodeCount = MaxMsBuildNodeCount;
         buildManager.BeginBuild(parameters);
 
         try
@@ -253,12 +255,12 @@ class Builder
                         // We don't store the cache for the root project
                         if (node.ReferencingProjects.Count != 0)
                         {
-                            parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
+                            request.OutputCacheFile = GetBuildCache(node.ProjectInstance);
                         }
 
                         if (node.ProjectReferences.Count > 0)
                         {
-                            parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
+                            request.InputCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
                         }
 
                         // Make sure that the existing result is deleted before (re) building it
@@ -322,7 +324,7 @@ class Builder
         {
             parameters.DisableInProcNode = true;
             parameters.EnableNodeReuse = true;
-            parameters.MaxNodeCount = 10;
+            parameters.MaxNodeCount = MaxMsBuildNodeCount;
         }
         else
         {

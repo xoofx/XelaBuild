@@ -52,10 +52,24 @@ static void RunBenchmark(string rootProject)
     builder.Build("Restore");
     Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
+    if (Debugger.IsAttached)
+    {
+        Console.WriteLine("Press key to attach to msbuild");
+        Console.ReadLine();
+    }
+
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Build caches");
     clock.Restart();
+    Environment.SetEnvironmentVariable("MSBUILDDEBUGONSTART", "2");
     var graph = builder.BuildCache();
+
+    if (Debugger.IsAttached)
+    {
+        Console.WriteLine("Press key to attach to msbuild");
+        Console.ReadLine();
+    }
+
     Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     // ------------------------------------------------------------------------------------------------------------------------
@@ -70,7 +84,7 @@ static void RunBenchmark(string rootProject)
 
         DumpHeader(kind);
 
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 10; i++)
         {
             if (index == 1)
             {
