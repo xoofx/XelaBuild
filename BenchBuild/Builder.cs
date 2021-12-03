@@ -264,7 +264,7 @@ class Builder
                                                                              BuildGraphDirection direction
                                                                              )
     {
-        // NOTE: code adapted from BuildManager.cs
+        // NOTE: code partially adapted from BuildManager.cs
         // Copyright (c) Microsoft. All rights reserved.
         // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 

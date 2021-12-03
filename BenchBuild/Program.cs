@@ -63,19 +63,12 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Build caches");
     clock.Restart();
-    Environment.SetEnvironmentVariable("MSBUILDDEBUGONSTART", "2");
+    //Environment.SetEnvironmentVariable("MSBUILDDEBUGONSTART", "2");
     var graph = builder.BuildCache();
-
-    if (Debugger.IsAttached)
-    {
-        Console.WriteLine("Press key to attach to msbuild");
-        Console.ReadLine();
-    }
-
     Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     int index = 0;
-    const int runCount = 10;
+    const int runCount = 5;
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (kind, prepare, build) in new (string, Action, Func<Dictionary<ProjectGraphNode, BuildResult>>)[]
             {

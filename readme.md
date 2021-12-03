@@ -15,6 +15,7 @@ while today msbuild can do caching only sequential and single threaded (see this
 > Disclaimer
 >
 > This is a playground, highly experimental, code super dirty, read it at your own risk!
+> The changes to msbuild are not fullproof, I have experienced nodes shutting down in weird ways and the client blocking.
 
 ## Why?
 
@@ -47,7 +48,12 @@ of child projects, and a single leaf project referenced by all children), the fu
 - 7s to 9s with Visual Studio/msbuild.
 - 1.5 to 2s with the solution experimented in this repository.
 
-The solution in this experiment brings almost a **speedup factor of x3 to x4 in build time**.
+When re-compiling a root project referencing the other 99 C# projects:
+
+- 1.5s with Visual Studio/msbuild
+- 150ms with the solution experimented.
+
+So the solution in this experiment brings almost a **speedup factor of x3 to x10 in build time**.
 
 ## Building
 
