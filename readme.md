@@ -1,6 +1,7 @@
 # Benchmark for prototyping msbuild with faster static-graph/caching
 
-Simple benchmark to test hosting msbuild in a "server" like mode and compile lots of projects.
+Simple benchmark to test hosting msbuild in a "server" like mode, with improvements to msbuild to make it 
+build a graph of projects a lot more faster.
 
 This is to measure the raw cost of msbuild when compiling a tree of deep projects:
 - Clean, build all
@@ -14,6 +15,39 @@ while today msbuild can do caching only sequential and single threaded (see this
 > Disclaimer
 >
 > This is a playground, highly experimental, code super dirty, read it at your own risk!
+
+## Why?
+
+Today, msbuild is used mostly dynamically to evaluate build graphs and execute targets.
+
+Recently was introduced a new way to build projects with msbuild by using [static graphs](https://github.com/dotnet/msbuild/blob/main/documentation/specs/static-graph.md#static-graph)
+
+Static graphs are great because they provide the knowledge up-front of the entire project graph to compile,
+and this allows to schedule more efficiently the build of projects.
+
+With the static-graph mode, msbuild has introduced an `isolate` project mode:
+
+- Usually, when you compile a Project A that has many project dependencies (B1, B2...), building project A
+with msbuild will require msbuild to issue lots of msbuild tasks to query build result metadatas from 
+project dependencies (e.g `B1.GetTargetFrameworks`). The problem is that calling msbuild on each dependencies
+can be very costly because it requires to load all the target files associated to a project, evaluate all the properties...etc.
+- With the isolate mode, you can create a cache of a project that would contain the results of these metadatas.
+ You could then build Project A by reusing caches for their dependencies (e.g B1.csproj.cache)
+
+But the design of `isolate` was made in a specific case (see this [issue](https://github.com/dotnet/msbuild/issues/7112)) 
+that was forcing the compilation of each projects sequentially and from a single thread. So you couldn't 
+build an entire graph of projects in reverse order of topological sort in parallel.
+
+This repo validates the idea by bringing to msbuild a way to use isolated builds on msbuild nodes, so 
+that we can now build caches in // while build projects.
+
+The performance improvements can be dramatic. For example, for a tree of 100 C# projects (a root project, several layers 
+of child projects, and a single leaf project referenced by all children), the full build of these projects takes:
+
+- 7s to 9s with Visual Studio/msbuild.
+- 2s with the solution experimented in this repository.
+
+The solution in this experiment brings almost a **speedup factor of x3 in build time**.
 
 ## Building
 
