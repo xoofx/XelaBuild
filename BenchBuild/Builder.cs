@@ -129,7 +129,7 @@ class Builder
         BuildProjectWithCache(graph, _collectionForGraph, graph.GraphRoots.First(), targets);
     }
 
-    private BuildParameters CreateParameters(ProjectGraph graph, ProjectCollection projectCollection)
+    private BuildParameters CreateParameters(ProjectGraph graph, ProjectCollection projectCollection, ProjectGraphNode node = null)
     {
         var parameters = new BuildParameters(projectCollection)
         {
@@ -144,16 +144,19 @@ class Builder
             IsolateProjects = true,
         };
 
-        //// We don't store the cache for the root project
-        //if (node.ReferencingProjects.Count == 0)
-        //{
-        //    parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
-        //}
+        // We don't store the cache for the root project
+        if (node != null)
+        {
+            if (node.ReferencingProjects.Count != 0)
+            {
+                parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
+            }
 
-        //if (node.ProjectReferences.Count > 0)
-        //{
-        //    parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
-        //}
+            if (node.ProjectReferences.Count > 0)
+            {
+                parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
+            }
+        }
 
         // ReSharper disable once InconsistentlySynchronizedField
         //parameters.ProjectCacheDescriptor = ProjectCacheDescriptor.FromInstance(_buildResultCaching, null, graph, null);
@@ -162,7 +165,7 @@ class Builder
 
     private void BuildProjectWithCache(ProjectGraph graph, ProjectCollection parentCollection, ProjectGraphNode node, params string[] targets)
     {
-        var parameters = CreateParameters(graph, parentCollection);
+        var parameters = CreateParameters(graph, parentCollection, node);
 
         using var manager = new BuildManager();
         manager.BeginBuild(parameters);
@@ -207,7 +210,9 @@ class Builder
         // Build node in //
         using var buildManager = new BuildManager();
         var parameters = CreateParameters(projectGraph, projectCollection);
-        parameters.MaxNodeCount = 10;
+        parameters.DisableInProcNode = false;
+        parameters.EnableNodeReuse = false;
+        parameters.MaxNodeCount = 1;
         buildManager.BeginBuild(parameters);
 
         try
@@ -245,6 +250,17 @@ class Builder
 
                         var request = new BuildRequestData(node.ProjectInstance, targetList.ToArray());
 
+                        // We don't store the cache for the root project
+                        if (node.ReferencingProjects.Count != 0)
+                        {
+                            parameters.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
+                        }
+
+                        if (node.ProjectReferences.Count > 0)
+                        {
+                            parameters.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
+                        }
+
                         // Make sure that the existing result is deleted before (re) building it
                         var buildProjectKey = BuildResultCaching.GetProjectBuildKeyFromBuildRequest(request);
                         _buildResultCaching.DeleteResult(buildProjectKey);
@@ -256,30 +272,26 @@ class Builder
                         var innerBuildSubmission = buildManager.PendBuildRequest(request);
                         buildingNodes.Add(innerBuildSubmission, node);
                         blockedNodes.Remove(node);
-                        var result = innerBuildSubmission.Execute();
-
-                        lock (graphBuildStateLock)
+                        innerBuildSubmission.ExecuteAsync(finishedBuildSubmission =>
                         {
-                            if (submissionException == null && result.Exception != null)
+                            var result = finishedBuildSubmission.BuildResult;
+                            lock (graphBuildStateLock)
                             {
-                                submissionException = result.Exception;
+                                if (submissionException == null && result.Exception != null)
+                                {
+                                    submissionException = result.Exception;
+                                }
+
+                                ProjectGraphNode finishedNode = buildingNodes[innerBuildSubmission];
+
+                                finishedNodes.Add(finishedNode);
+                                buildingNodes.Remove(innerBuildSubmission);
+
+                                resultsPerNode.Add(finishedNode, innerBuildSubmission.BuildResult);
                             }
 
-                            ProjectGraphNode finishedNode = buildingNodes[innerBuildSubmission];
-
-                            finishedNodes.Add(finishedNode);
-                            buildingNodes.Remove(innerBuildSubmission);
-
-                            resultsPerNode.Add(finishedNode, innerBuildSubmission.BuildResult);
-
-                            // Save the results only for projects that have references to it
-                            if (node.ReferencingProjects.Count > 0)
-                            {
-                                _buildResultCaching.AddAndSaveResult(buildProjectKey, innerBuildSubmission.BuildResult);
-                            }
-                        }
-
-                        waitHandle.Set();
+                            waitHandle.Set();
+                        }, null);
                     }
                 }
             }

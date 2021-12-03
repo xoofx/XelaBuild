@@ -30,7 +30,22 @@ public static class BuildProcessApp
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
 
         // Custom registration with our custom msbuild
-        var msbuildPath = @"C:\work\dotnet\msbuild\artifacts\bin\MSBuild\Release\net6.0\";
+        var msbuildPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\..\..\dotnet\msbuild\artifacts\bin\MSBuild\Release\net6.0\");
+        if (!Directory.Exists(msbuildPath))
+        {
+            throw new InvalidOperationException($"folder {msbuildPath} does not exist");
+        }
+
+        // Copy any existing file from current SDK to the local msbuild
+        foreach (var file in Directory.EnumerateFiles(latest.MSBuildPath))
+        {
+            var destFile = Path.Combine(msbuildPath, Path.GetFileName(file));
+            if (!File.Exists(destFile))
+            {
+                File.Copy(file, destFile);
+            }
+        }
+        
         foreach (KeyValuePair<string, string> keyValuePair in new Dictionary<string, string>()
                  {
                      ["MSBUILD_EXE_PATH"] = msbuildPath + "MSBuild.dll",

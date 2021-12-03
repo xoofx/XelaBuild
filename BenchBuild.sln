@@ -12,8 +12,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildProcess", "BuildProcess\BuildProcess.csproj", "{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityProjectCachePluginExtension", "UnityProjectCachePluginExtension\UnityProjectCachePluginExtension.csproj", "{36D5DC9B-CB84-4A62-ACF2-CF2830F49186}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,10 +26,6 @@ Global
 		{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{36D5DC9B-CB84-4A62-ACF2-CF2830F49186}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{36D5DC9B-CB84-4A62-ACF2-CF2830F49186}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{36D5DC9B-CB84-4A62-ACF2-CF2830F49186}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{36D5DC9B-CB84-4A62-ACF2-CF2830F49186}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

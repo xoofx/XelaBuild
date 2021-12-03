@@ -8,14 +8,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />
+    <!--<PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />-->
+    <!--<PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />-->
     <PackageReference Include="Microsoft.Build.Locator" Version="1.4.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BuildProcess\BuildProcess.csproj" />
-    <ProjectReference Include="..\UnityProjectCachePluginExtension\UnityProjectCachePluginExtension.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\Release\net6.0\Microsoft.Build.dll">
+      <CopyLocal>False</CopyLocal>
+    </Reference>
+    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\Release\net6.0\Microsoft.Build.Framework.dll">
+      <CopyLocal>False</CopyLocal>
+    </Reference>
   </ItemGroup>
 
 </Project>

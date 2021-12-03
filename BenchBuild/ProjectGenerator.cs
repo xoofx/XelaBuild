@@ -190,11 +190,11 @@ public static class {className} {{
         <BaseIntermediateOutputPath>$(UnityBuildDir)obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
         <UseCommonOutputDirectory>true</UseCommonOutputDirectory>        
     </PropertyGroup>
-    <ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">
-        <ProjectCachePlugin Include=""$(MSBuildThisFileDirectory)..\UnityProjectCachePluginExtension.dll"" BuildPath =""$(UnityBuildDir)""/>
-    </ItemGroup>
 </Project>
 ";
+    //<ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">
+    //    <ProjectCachePlugin Include=""$(MSBuildThisFileDirectory)..\UnityProjectCachePluginExtension.dll"" BuildPath =""$(UnityBuildDir)""/>
+    //</ItemGroup>
         var propsFile = Path.Combine(_projectsRootFolder, "Directory.Build.props");
         File.WriteAllText(propsFile, NormalizeEOL(content));
     }
