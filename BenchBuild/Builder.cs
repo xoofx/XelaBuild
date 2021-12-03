@@ -32,6 +32,7 @@ class Builder
     private readonly EvaluationContext _context;
     private readonly Dictionary<string, string> _globalProperties;
     private readonly Dictionary<string, string> _globalPropertiesForGraph;
+    private readonly BuildManager _buildManager;
     private string _rootProjectPath;
     private readonly HashSet<ProjectGraphNode> _visitedNodes;
     private readonly string _rootFolder;
@@ -64,6 +65,8 @@ class Builder
         _cacheFolder = DirectoryHelper.EnsureDirectory(Path.Combine(_buildFolder, "caches"));
         _buildResultCaching = new BuildResultCaching(_cacheFolder);
 
+        _buildManager = new BuildManager();
+
         // Clear the cache on disk
         _buildResultCaching.ClearCaches();
     }
@@ -91,7 +94,7 @@ class Builder
 
         var mapNodeToTargets = graph.GetTargetLists(null);
 
-        var result = BuildParallelWithCache(graph, _collectionForGraph, mapNodeToTargets);
+        var result = BuildParallelWithCache(graph, "Build");
 
         //var root = graph.GraphRoots.First();
 
@@ -126,12 +129,12 @@ class Builder
         }
     }
 
-    public void BuildProjectWithCache(ProjectGraph graph, params string[] targets)
+    public Dictionary<ProjectGraphNode, BuildResult> BuildRootProjectWithCache(ProjectGraph graph, params string[] targets)
     {
-        BuildProjectWithCache(graph, _collectionForGraph, graph.GraphRoots.First(), targets);
+        return BuildProjectWithCache(graph, _collectionForGraph, graph.GraphRoots.First(), targets);
     }
 
-    private BuildParameters CreateParameters(ProjectGraph graph, ProjectCollection projectCollection, ProjectGraphNode node = null)
+    private BuildParameters CreateParameters(ProjectCollection projectCollection, ProjectGraphNode node = null)
     {
         var parameters = new BuildParameters(projectCollection)
         {
@@ -165,12 +168,11 @@ class Builder
         return parameters;
     }
 
-    private void BuildProjectWithCache(ProjectGraph graph, ProjectCollection parentCollection, ProjectGraphNode node, params string[] targets)
+    private Dictionary<ProjectGraphNode, BuildResult> BuildProjectWithCache(ProjectGraph graph, ProjectCollection parentCollection, ProjectGraphNode node, params string[] targets)
     {
-        var parameters = CreateParameters(graph, parentCollection, node);
+        var parameters = CreateParameters(parentCollection, node);
 
-        using var manager = new BuildManager();
-        manager.BeginBuild(parameters);
+        _buildManager.BeginBuild(parameters);
         try
         {
             Console.WriteLine($"Building {node.ProjectInstance.FullPath}");
@@ -179,22 +181,88 @@ class Builder
             var request = new BuildRequestData(node.ProjectInstance, targets);
             clock.Restart();
 
-            var submission = manager.PendBuildRequest(request);
+            var submission = _buildManager.PendBuildRequest(request);
             var result = submission.Execute();
+            return new Dictionary<ProjectGraphNode, BuildResult>()
+            {
+                {node, result}
+            };
         }
         finally
         {
-            manager.EndBuild();
+            _buildManager.EndBuild();
         }
+    }
+
+    public Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, ProjectGraphNode startingNode, string[] targets, BuildGraphDirection direction = BuildGraphDirection.Downward)
+    {
+        var targetsPerNode = projectGraph.GetTargetLists(targets);
+        return BuildParallelWithCache(projectGraph, startingNode, _collectionForGraph, targetsPerNode, direction);
     }
 
     public Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, params string[] targets)
     {
-        var targetsPerNode = projectGraph.GetTargetLists(targets);
-        return BuildParallelWithCache(projectGraph, _collectionForGraph, targetsPerNode);
+        return BuildParallelWithCache(projectGraph, projectGraph.GraphRoots.First(), targets);
     }
 
-    private Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, ProjectCollection projectCollection, IReadOnlyDictionary<ProjectGraphNode, ImmutableList<string>> targetsPerNode)
+    public Dictionary<ProjectGraphNode, BuildResult> BuildRootOnlyWithParallelCache(ProjectGraph projectGraph, params string[] targets)
+    {
+        return BuildParallelWithCache(projectGraph, projectGraph.GraphRoots.First(), targets, BuildGraphDirection.Current);
+    }
+
+    public enum BuildGraphDirection
+    {
+        Current,
+        Downward,
+        Upward,
+    }
+
+    private class ProjectCollector
+    {
+        private readonly HashSet<ProjectGraphNode> _cache;
+        private ProjectGraphNode _startingNode;
+
+        public ProjectCollector()
+        {
+            _cache = new HashSet<ProjectGraphNode>();
+        }
+
+        private BuildGraphDirection Direction { get; set; }
+
+        public IEnumerable<ProjectGraphNode> CollectProjects(ProjectGraphNode graphNode, BuildGraphDirection direction)
+        {
+            Direction = direction;
+            _startingNode = graphNode;
+            _cache.Clear();
+            return CollectProjects(graphNode);
+        }
+        private IEnumerable<ProjectGraphNode> CollectProjects(ProjectGraphNode graphNode)
+        {
+            if (!_cache.Add(graphNode)) yield break;
+
+            foreach (var node in Direction == BuildGraphDirection.Downward ? graphNode.ProjectReferences : graphNode.ReferencingProjects)
+            {
+                foreach (var subnode in CollectProjects(node))
+                {
+                    yield return subnode;
+                }
+            }
+
+            // Don't report the starting node
+            if (_startingNode != graphNode)
+            {
+                yield return graphNode;
+            }
+        }
+    }
+
+    private Dictionary<ProjectGraphNode, BuildResult> BuildParallelWithCache(ProjectGraph projectGraph, 
+                                                                             ProjectGraphNode startingNode, 
+                                                                             ProjectCollection projectCollection, 
+                                                                             IReadOnlyDictionary<ProjectGraphNode, 
+                                                                             ImmutableList<string>> targetsPerNode, 
+                                                                             BuildGraphDirection direction
+                                                                             )
     {
         // NOTE: code adapted from BuildManager.cs
         // Copyright (c) Microsoft. All rights reserved.
@@ -203,19 +271,41 @@ class Builder
         var waitHandle = new AutoResetEvent(true);
         var graphBuildStateLock = new object();
 
-        var blockedNodes = new HashSet<ProjectGraphNode>(projectGraph.ProjectNodes);
+        var blockedNodes = new HashSet<ProjectGraphNode>();
         var finishedNodes = new HashSet<ProjectGraphNode>(projectGraph.ProjectNodes.Count);
+
+        var collector = new ProjectCollector();
+        if (direction != BuildGraphDirection.Current)
+        {
+            // Collect all the projects downward that we need to compile
+            foreach (var project in collector.CollectProjects(startingNode, direction))
+            {
+                blockedNodes.Add(project);
+            }
+        }
+
+        // if we want to recompile upward or current, tag the downward projects as finished
+        if (direction != BuildGraphDirection.Downward)
+        {
+            foreach (var project in collector.CollectProjects(startingNode, BuildGraphDirection.Downward))
+            {
+                finishedNodes.Add(project);
+            }
+        }
+
+        // Always recompile the current node 
+        blockedNodes.Add(startingNode);
+        
         var buildingNodes = new Dictionary<BuildSubmission, ProjectGraphNode>();
         var resultsPerNode = new Dictionary<ProjectGraphNode, BuildResult>(projectGraph.ProjectNodes.Count);
         Exception submissionException = null;
 
         // Build node in //
-        using var buildManager = new BuildManager();
-        var parameters = CreateParameters(projectGraph, projectCollection);
+        var parameters = CreateParameters(projectCollection);
         parameters.DisableInProcNode = true;
         parameters.EnableNodeReuse = true;
         parameters.MaxNodeCount = MaxMsBuildNodeCount;
-        buildManager.BeginBuild(parameters);
+        _buildManager.BeginBuild(parameters);
 
         try
         {
@@ -271,7 +361,7 @@ class Builder
                         // Among other things, this makes BuildParameters.DetailedSummary produce a summary for each node, which is not desirable.
                         // We basically want to submit all requests to the scheduler all at once and describe dependencies by requests being blocked by other requests.
                         // However today the scheduler only keeps track of MSBuild nodes being blocked by other MSBuild nodes, and MSBuild nodes haven't been assigned to the graph nodes yet.
-                        var innerBuildSubmission = buildManager.PendBuildRequest(request);
+                        var innerBuildSubmission = _buildManager.PendBuildRequest(request);
                         buildingNodes.Add(innerBuildSubmission, node);
                         blockedNodes.Remove(node);
                         innerBuildSubmission.ExecuteAsync(finishedBuildSubmission =>
@@ -300,15 +390,14 @@ class Builder
         } 
         finally
         {
-            buildManager.EndBuild();
+            _buildManager.EndBuild();
         }
 
 
         return resultsPerNode;
     }
-
-
-    public void Build(string target, bool useCache = false)
+    
+    public void BasicBuild(string target, bool useCache = false)
     {
         //const string buildCache = "build.cache";
 
@@ -343,8 +432,7 @@ class Builder
             }
         }
 
-        using var manager = new BuildManager();
-        manager.BeginBuild(parameters);
+        _buildManager.BeginBuild(parameters);
         try
         {
             if (UseGraph)
@@ -364,14 +452,14 @@ class Builder
                 if (useCache)
                 {
                     var request = new BuildRequestData(projectGraph.GraphRoots.First().ProjectInstance, new [] { target });
-                    var submission = manager.PendBuildRequest(request);
+                    var submission = _buildManager.PendBuildRequest(request);
                     var result = submission.Execute();
                 }
                 else
                 {
                     var request = new GraphBuildRequestData(projectGraph, new List<string>() { target });
 
-                    var submission = manager.PendBuildRequest(request);
+                    var submission = _buildManager.PendBuildRequest(request);
                     var result = submission.Execute();
                 }
             }
@@ -384,7 +472,7 @@ class Builder
                 var request = new BuildRequestData(CreateProjectInstance(_rootProjectPath, _globalProperties, _collectionForRestore), new[] { target });
                 clock.Restart();
 
-                var submission = manager.PendBuildRequest(request);
+                var submission = _buildManager.PendBuildRequest(request);
                 var result = submission.Execute();
             }
 
@@ -402,7 +490,7 @@ class Builder
         }
         finally
         {
-            manager.EndBuild();
+            _buildManager.EndBuild();
         }
     }
 

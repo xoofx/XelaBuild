@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using BenchBuild;
 using BuildProcess;
+using Microsoft.Build.Execution;
+using Microsoft.Build.Graph;
 using Microsoft.Build.Locator;
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
@@ -49,7 +51,7 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Restore Projects");
     clock.Restart();
-    builder.Build("Restore");
+    builder.BasicBuild("Restore");
     Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
     if (Debugger.IsAttached)
@@ -72,46 +74,51 @@ static void RunBenchmark(string rootProject)
 
     Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
+    int index = 0;
+    const int runCount = 10;
     // ------------------------------------------------------------------------------------------------------------------------
-    foreach (var (index, kind) in new (int, string)[]
+    foreach (var (kind, prepare, build) in new (string, Action, Func<Dictionary<ProjectGraphNode, BuildResult>>)[]
             {
-//            (0, "Build All (Clean)"), 
-            (3, "Build All - No Changes"),
-            (1, "Build All - 1 C# file changed in root"),
-//            (2, "Build All - 1 C# file changed in leaf"),
+            ("Build All (Clean)",
+                () => builder.BasicBuild("Clean"),
+                () => builder.BuildParallelWithCache(graph, "Build")
+            ),
+            ("Build Root - No Changes",
+                null,
+                () => builder.BuildRootOnlyWithParallelCache(graph, "Build")
+            ),
+            ("Build Root - 1 C# file changed in root", 
+                () => System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow),
+                () => builder.BuildRootOnlyWithParallelCache(graph, "Build")
+            ),
+            ("Build All - 1 C# file changed in leaf", 
+                () => File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
+public static class LibLeafClass {{
+    public static void Run() {{
+        // empty
+    }}
+    public static void Change{index}() {{ }}
+}}
+"),
+                () => builder.BuildParallelWithCache(graph, "Build")
+            )
             })
     {
 
         DumpHeader(kind);
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < runCount; i++)
         {
-            if (index == 1)
-            {
-                System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow);
-            }
-            else if (index == 2)
-            {
-                File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
-public static class LibLeafClass {{
-    public static void Run() {{
-        // empty
-    }}
-    public static void Change{i}() {{ }}
-}}
-");
-                //System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), DateTime.UtcNow);
-            }
-            else if (index == 0)
-            {
-                // Full clean before a build all
-                builder.Build("Clean");
-            }
+            prepare?.Invoke();
+
             clock.Restart();
-            //builder.Build("Build", true);
-            builder.BuildProjectWithCache(graph, "Build");
-            Console.WriteLine($"[{i}] Time to build {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+
+            var results = build();
+
+            Console.WriteLine($"[{i}] Time to build {results.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
         }
+
+        index++;
     }
 }
 
