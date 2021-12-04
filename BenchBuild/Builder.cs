@@ -25,7 +25,7 @@ using Microsoft.Build.Graph;
 /// </summary>
 class Builder
 {
-    private readonly int MaxMsBuildNodeCount = 10;
+    public static int MaxMsBuildNodeCount = 10;
 
     private readonly ProjectCollection _collectionForRestore;
     private readonly ProjectCollection _collectionForGraph;
@@ -345,12 +345,12 @@ class Builder
                         // We don't store the cache for the root project
                         if (node.ReferencingProjects.Count != 0)
                         {
-                            request.OutputCacheFile = GetBuildCache(node.ProjectInstance);
+                            request.OutputResultsCacheFile = GetBuildCache(node.ProjectInstance);
                         }
 
                         if (node.ProjectReferences.Count > 0)
                         {
-                            request.InputCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
+                            request.InputResultsCacheFiles = node.ProjectReferences.Select(x => GetBuildCache(x.ProjectInstance)).ToArray();
                         }
 
                         // Make sure that the existing result is deleted before (re) building it

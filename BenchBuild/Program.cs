@@ -68,6 +68,7 @@ static void RunBenchmark(string rootProject)
     Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     int index = 0;
+    Builder.MaxMsBuildNodeCount = 10;
     const int runCount = 5;
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (kind, prepare, build) in new (string, Action, Func<Dictionary<ProjectGraphNode, BuildResult>>)[]
