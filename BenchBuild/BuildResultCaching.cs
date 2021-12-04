@@ -78,6 +78,11 @@ namespace UnityProjectCachePluginExtension
         }
 
 
+        public string GetCacheFilePath(ProjectInstance instance)
+        {
+            return GetCacheFilePath(Path.GetFileName(instance.FullPath));
+        }
+
         public void DeleteResult(string projectBuildKey)
         {
             lock (BuildResults)
@@ -87,6 +92,7 @@ namespace UnityProjectCachePluginExtension
             var fileToDelete = Path.Combine(_cacheFolder, $"{projectBuildKey}.cache");
             File.Delete(fileToDelete);
         }
+
 
         public static string GetProjectBuildKeyFromBuildRequest(BuildRequestData buildRequestData)
         {

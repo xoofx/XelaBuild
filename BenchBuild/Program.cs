@@ -40,18 +40,20 @@ static void RunBenchmark(string rootProject)
 {
     var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
     // ------------------------------------------------------------------------------------------------------------------------
-    DumpHeader("Load Projects");
+    DumpHeader("Load Projects and graph");
     var clock = Stopwatch.StartNew();
     var builder = new Builder(rootProject)
     {
         UseGraph = true
     };
+
+    var graph = builder.GetGraph();
     Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
 
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Restore Projects");
     clock.Restart();
-    builder.BasicBuild("Restore");
+    builder.Run(graph, "Restore");
     Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
     if (Debugger.IsAttached)
@@ -63,19 +65,17 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Build caches");
     clock.Restart();
-    //Environment.SetEnvironmentVariable("MSBUILDDEBUGONSTART", "2");
-    var graph = builder.BuildCache();
+    builder.Run(graph, "Build");
     Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     int index = 0;
-    Builder.MaxMsBuildNodeCount = 10;
     const int runCount = 5;
     // ------------------------------------------------------------------------------------------------------------------------
-    foreach (var (kind, prepare, build) in new (string, Action, Func<Dictionary<ProjectGraphNode, BuildResult>>)[]
+    foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
             {
             ("Build All (Clean)",
-                () => builder.BasicBuild("Clean"),
-                () => builder.BuildParallelWithCache(graph, "Build")
+                () => builder.Run(graph, "Clean"),
+                () => builder.Run(graph, "Build")
             ),
             ("Build Root - No Changes",
                 null,
@@ -94,7 +94,7 @@ public static class LibLeafClass {{
     public static void Change{index}() {{ }}
 }}
 "),
-                () => builder.BuildParallelWithCache(graph, "Build")
+                () => builder.Run(graph, "Build")
             )
             })
     {
