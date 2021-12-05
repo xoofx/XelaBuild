@@ -10,7 +10,7 @@ namespace BuildServer;
 /// <summary>
 /// Internal type to manage the cache folder / cache filenames for csproj metadata results.
 /// </summary>
-internal class CacheFolder
+public class CacheFolder
 {
     private readonly string _cacheFolder;
     private readonly HashAlgorithm _hasher;

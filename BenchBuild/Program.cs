@@ -35,21 +35,14 @@ static void RunBenchmark(string rootProject)
 {
     var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
     // ------------------------------------------------------------------------------------------------------------------------
-    DumpHeader("Load Projects and graph");
     var clock = Stopwatch.StartNew();
-    var builder = new Builder(rootProject)
-    {
-        UseGraph = true
-    };
+    var builder = new Builder(rootProject);
+    
+    DumpHeader("Load Projects and graph");
+    var group = new ProjectGroup(builder, ConfigurationHelper.Release());
     Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
 
-    //builder.DumpRootGlobs(graph);
-
-    // ------------------------------------------------------------------------------------------------------------------------
-    DumpHeader("Restore Projects");
-    clock.Restart();
-    builder.Run(LoggerVerbosity.Minimal, "Restore");
-    Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+    //return;
 
     if (Debugger.IsAttached)
     {
@@ -62,17 +55,25 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
             {
+            ("Restore + Build All",
+                null,
+                () => builder.Run(group, "Restore", "Build")
+            ),
             ("Build All (Clean)",
-                () => builder.Run("Clean"),
-                () => builder.Run("Build")
+                () => builder.Run(group, "Clean"),
+                () => builder.Run(group, "Build")
+            ),
+            ("Build All - No changes",
+                null,
+                () => builder.Run(group, "Build")
             ),
             ("Build Root - No Changes",
                 null,
-                () => builder.BuildRootOnlyWithParallelCache("Build")
+                () => builder.BuildRootOnlyWithParallelCache(group, "Build")
             ),
             ("Build Root - 1 C# file changed in root", 
                 () => System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow),
-                () => builder.BuildRootOnlyWithParallelCache("Build")
+                () => builder.BuildRootOnlyWithParallelCache(group, "Build")
             ),
             ("Build All - 1 C# file changed in leaf", 
                 () => File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
@@ -83,7 +84,7 @@ public static class LibLeafClass {{
     public static void Change{index}() {{ }}
 }}
 "),
-                () => builder.Run("Build")
+                () => builder.Run(group, "Build")
             )
             })
     {
