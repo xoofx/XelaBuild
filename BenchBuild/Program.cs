@@ -5,6 +5,7 @@ using System.IO;
 using BenchBuild;
 using BuildServer;
 using Microsoft.Build.Execution;
+using Microsoft.Build.Framework;
 using Microsoft.Build.Graph;
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
@@ -47,7 +48,7 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     DumpHeader("Restore Projects");
     clock.Restart();
-    builder.Run("Restore");
+    builder.Run(LoggerVerbosity.Minimal, "Restore");
     Console.WriteLine($"=== Time to Restore {builder.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
     if (Debugger.IsAttached)
@@ -55,12 +56,6 @@ static void RunBenchmark(string rootProject)
         Console.WriteLine("Press key to attach to msbuild");
         Console.ReadLine();
     }
-
-    // ------------------------------------------------------------------------------------------------------------------------
-    DumpHeader("Build caches");
-    clock.Restart();
-    builder.Run("Build");
-    Console.WriteLine($"=== Time to Build Cache {clock.Elapsed.TotalMilliseconds}ms");
 
     int index = 0;
     const int runCount = 5;
