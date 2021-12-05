@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
 
-namespace UnityProjectCachePluginExtension;
+namespace BuildServer;
 
-public static class DirectoryHelper
+internal static class DirectoryHelper
 {
     public static string EnsureDirectory(string directory)
     {

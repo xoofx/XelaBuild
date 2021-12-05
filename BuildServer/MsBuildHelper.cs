@@ -5,10 +5,30 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Build.Locator;
 
-namespace BuildProcess;
+namespace BuildServer;
 
-public static class BuildProcessApp
+/// <summary>
+/// Helper class to deal with a local copy of msbuild but also to allow to run MsBuild as a node
+/// </summary>
+public static class MsBuildHelper
 {
+    /// <summary>
+    /// Returns true if the arguments are suggesting that it is msbuild launching a node
+    /// </summary>
+    /// <param name="args">The command line arguments</param>
+    /// <returns><c>true</c> if it is msbuild launching a node; otherwise <c>false</c></returns>
+    public static bool IsCommandLineArgsForMsBuild(string[] args)
+    {
+        // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
+        // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
+        return args.Length > 0 && args.Any(x => x.StartsWith("/nodemode")) && args.Any(x => x.StartsWith("/nologo"));
+    }
+
+    /// <summary>
+    /// Run msbuild.dll Main (act as if it was an msbuild node running)
+    /// </summary>
+    /// <param name="args">The command line arguments.</param>
+    /// <returns>The exit code</returns>
     public static int Run(string[] args)
     {
         var msbuildPath = RegisterCustomMsBuild();
@@ -25,7 +45,12 @@ public static class BuildProcessApp
 
     public static string RegisterCustomMsBuild()
     {
-        var latest = MSBuildLocator.QueryVisualStudioInstances().First(x => x.Version.Major == 6);
+        var latest = MSBuildLocator.QueryVisualStudioInstances().FirstOrDefault(x => x.Version.Major == 6);
+
+        if (latest == null)
+        {
+            throw new InvalidOperationException($"No .NET 6.x SDKs found. Check installs:\n{string.Join("\n", MSBuildLocator.QueryVisualStudioInstances().Select(x => $"   {GetVisualStudioInstanceToString(x)}"))}");
+        }
 
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
 
@@ -68,4 +93,8 @@ public static class BuildProcessApp
     }
 
 
+    private static string GetVisualStudioInstanceToString(VisualStudioInstance visualStudioInstance)
+    {
+        return $"SDK: {visualStudioInstance.Name} version: {visualStudioInstance.Version} type: {visualStudioInstance.DiscoveryType} msbuild: {visualStudioInstance.MSBuildPath} vs: {visualStudioInstance.VisualStudioRootPath}";
+    }
 }

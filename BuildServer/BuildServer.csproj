@@ -1,21 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <!--<ImplicitUsings>enable</ImplicitUsings>-->
     <!--<Nullable>enable</Nullable>-->
   </PropertyGroup>
 
   <ItemGroup>
-    <!--<PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />-->
-    <!--<PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />-->
+    <!--<PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />-->
+    <PackageReference Include="Microsoft.Build.Locator" Version="1.4.1" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\BuildServer\BuildServer.csproj" />
-  </ItemGroup>
-
 
   <ItemGroup>
     <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.dll">
@@ -25,6 +21,4 @@
       <Private>False</Private>
     </Reference>
   </ItemGroup>
-
-
 </Project>

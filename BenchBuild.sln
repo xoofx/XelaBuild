@@ -10,7 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		readme.md = readme.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildProcess", "BuildProcess\BuildProcess.csproj", "{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildServer", "BuildServer\BuildServer.csproj", "{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
