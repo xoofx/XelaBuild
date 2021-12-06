@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using BenchBuild;
 using BuildServer;
 using Microsoft.Build.Execution;
-using Microsoft.Build.Framework;
 using Microsoft.Build.Graph;
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
@@ -43,7 +41,7 @@ static void RunBenchmark(string rootProject)
     DumpHeader("Load Projects and graph");
     var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
     Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
-    
+
     if (Debugger.IsAttached)
     {
         Console.WriteLine("Press key to attach to msbuild");
@@ -98,6 +96,7 @@ public static class LibLeafClass {{
             clock.Restart();
 
             var results = build();
+            ResultsHelper.Verify(results);
 
             Console.WriteLine($"[{i}] Time to build {results.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
         }
@@ -105,6 +104,7 @@ public static class LibLeafClass {{
         index++;
     }
 }
+
 // END
 // **************************************************************
 
