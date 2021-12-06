@@ -41,6 +41,20 @@ public class Builder : IDisposable
         _cacheFolder = new CacheFolder(Path.Combine(Provider.BuildFolder, "caches"));
 
         _buildManager = new BuildManager();
+
+        //var cacheFiles = _cacheFolder.ListCacheFiles().ToArray();
+        //var results = _buildManager.LoadCachedResults(cacheFiles);
+        //foreach (var pair in results)
+        //{
+        //    Console.WriteLine($"Results {pair.Value.ConfigurationId} {pair.Key.ProjectFullPath}");
+        //    foreach (var resultPerTarget in pair.Value.ResultsByTarget)
+        //    {
+        //        foreach (var item in resultPerTarget.Value.Items)
+        //        {
+        //            Console.WriteLine($"   {resultPerTarget.Key} => {item.ItemSpec}");
+        //        }
+        //    }
+        //}
     }
 
     public ProjectsProvider Provider { get; }
