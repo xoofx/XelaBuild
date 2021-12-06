@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using BenchBuild;
 using BuildServer;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
@@ -22,9 +23,13 @@ if (MsBuildHelper.IsCommandLineArgsForMsBuild(args))
 MsBuildHelper.RegisterCustomMsBuild();
 
 // ------------------------------------------------------------------------------------------------------------------------
-DumpHeader("Generate Projects");
-var rootProject = ProjectGenerator.Generate();
-Console.WriteLine($"RootProject {rootProject}");
+// generate testing projects if necessary
+var rootProject = Path.Combine(Environment.CurrentDirectory, "projects", "LibRoot", "LibRoot.csproj");
+if (!File.Exists(rootProject))
+{
+    DumpHeader("Generate Projects");
+    rootProject = ProjectGenerator.Generate();
+}
 
 RunBenchmark(rootProject);
 
@@ -33,14 +38,16 @@ static void RunBenchmark(string rootProject)
 {
     var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
     
-
     // ------------------------------------------------------------------------------------------------------------------------
     var clock = Stopwatch.StartNew();
-    var provider = ProjectsProvider.FromList(Directory.EnumerateFiles(rootFolder, "*.csproj", SearchOption.AllDirectories), Path.Combine(rootFolder, "build"));
-    using var builder = new Builder(provider);
+
     DumpHeader("Load Projects and graph");
+    clock.Restart();
+    //var provider = ProjectsProvider.FromList(Directory.EnumerateFiles(rootFolder, "*.csproj", SearchOption.AllDirectories), Path.Combine(rootFolder, "build"));
+    var provider = ProjectsProvider.FromList(new[] { rootProject }, Path.Combine(rootFolder, "build"));
+    using var builder = new Builder(provider);
     var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
-    Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
+    Console.WriteLine($"Time to load and evaluate {group.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
 
     if (Debugger.IsAttached)
     {
