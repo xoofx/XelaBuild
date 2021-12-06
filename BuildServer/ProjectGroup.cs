@@ -18,9 +18,9 @@ public class ProjectGroup
     private readonly ProjectCollection _projectCollection;
     private readonly Dictionary<string, Project> _projects;
     private readonly Builder _builder;
-    private readonly ProjectGraph _projectGraph;
+    private ProjectGraph _projectGraph;
 
-    public ProjectGroup(Builder builder, Dictionary<string, string> globalProperties)
+    internal ProjectGroup(Builder builder, IReadOnlyDictionary<string, string> globalProperties)
     {
         if (builder == null) throw new ArgumentNullException(nameof(builder));
         if (globalProperties == null) throw new ArgumentNullException(nameof(globalProperties));
@@ -33,10 +33,6 @@ public class ProjectGroup
         _projects = new Dictionary<string, Project>();
         _projectCollection = new ProjectCollection(properties, null, null, ToolsetDefinitionLocations.Default, builder.MaxNodeCount, false, true, builder.ProjectCollectionRootElementCache);
         _builder = builder;
-
-        // Initialize the project graph
-        // Seems that degreeOfParallelism doesn't change much when loading a project
-        _projectGraph = new ProjectGraph(new[] { new ProjectGraphEntryPoint(_builder.RootProjectPath, _projectCollection.GlobalProperties) }, _projectCollection, CreateProjectInstance, 1, CancellationToken.None);
     }
 
     public int Count => _projectCollection.LoadedProjects.Count;
@@ -54,24 +50,25 @@ public class ProjectGroup
             return project;
         }
     }
+        
+    internal void InitializeGraph()
+    {
+        // Initialize the project graph
+        var parallelism = 8;
+        var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(x, _projectCollection.GlobalProperties));
+
+        _projectGraph = new ProjectGraph(entryPoints, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
+    }
 
     private ProjectInstance CreateProjectInstance(string projectPath, Dictionary<string, string> globalProperties, ProjectCollection projectCollection)
     {
-        Project project;
+        // Don't use projectCollection.LoadProject it is locking more projectCollection
+        var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
         lock (_projects)
         {
-            _projects.TryGetValue(projectPath, out project);
+            _projects[projectPath] = project;
         }
-
-        if (project == null)
-        {
-            project = projectCollection.LoadProject(projectPath, globalProperties, projectCollection.DefaultToolsVersion);
-            lock (_projects)
-            {
-                _projects[projectPath] = project;
-            }
-        }
-
-        return _builder.BuildManager.GetProjectInstanceForBuild(project);
+        var instance = new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
+        return instance;
     }
 }

@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Evaluation.Context;
@@ -16,43 +19,46 @@ namespace BuildServer;
 /// <summary>
 /// Simple hosting of BuildManager from msbuild
 /// </summary>
-public class Builder
+public class Builder : IDisposable
 {
     internal readonly int MaxNodeCount = 10;
 
     private readonly BuildManager _buildManager;
-    private readonly string _rootProjectPath;
-    private readonly string _buildFolder;
     private readonly CacheFolder _cacheFolder;
+    private readonly List<ProjectGroup> _groups;
+    private BlockingCollection<Project> _projectsCreated;
 
-    public Builder(string rootProjectOrSln, string buildFolder = null)
+    public Builder(ProjectsProvider provider)
     {
-        if (rootProjectOrSln == null) throw new ArgumentNullException(nameof(rootProjectOrSln));
+        Provider = provider ?? throw new ArgumentNullException(nameof(provider));
 
         ProjectCollectionRootElementCache = new ProjectCollectionRootElementCache(true, true);
-
-        _rootProjectPath = rootProjectOrSln ?? throw new ArgumentNullException(nameof(rootProjectOrSln));
+        _groups = new List<ProjectGroup>();
 
         // By default for the build folder:
         // - if we have a solution output to the `build` folder in the same folder than the solution
         // - if we have a project file to the `build` folder in 2 folders above the project (so usually same level than the solution)
-        var defaultRootFolder = _rootProjectPath.EndsWith(".sln", StringComparison.InvariantCultureIgnoreCase)
-            ? Path.GetDirectoryName(_rootProjectPath)
-            : Path.GetDirectoryName(Path.GetDirectoryName(_rootProjectPath));
-
-        _buildFolder = buildFolder ?? DirectoryHelper.EnsureDirectory(Path.Combine(defaultRootFolder, "build"));
-        _cacheFolder = new CacheFolder(Path.Combine(_buildFolder, "caches"));
+        _cacheFolder = new CacheFolder(Path.Combine(Provider.BuildFolder, "caches"));
 
         _buildManager = new BuildManager();
     }
 
-    public string RootProjectPath => _rootProjectPath;
+    public ProjectsProvider Provider { get; }
 
     public CacheFolder CacheFolder => _cacheFolder;
 
     internal ProjectCollectionRootElementCache ProjectCollectionRootElementCache { get; }
 
     internal BuildManager BuildManager => _buildManager;
+
+
+    public ProjectGroup LoadProjectGroup(IReadOnlyDictionary<string, string> properties)
+    {
+        var group = new ProjectGroup(this, properties);
+        group.InitializeGraph();
+        _groups.Add(group);
+        return group;
+    }
 
     //public void DumpRootGlobs(ProjectGraph graph)
     //{
@@ -66,7 +72,7 @@ public class Builder
     //        EvaluationContext = _evaluationContext,
     //        GlobalProperties = _globalPropertiesForGraph,
     //    });
-        
+
     //    var allGlobs = project.GetAllGlobs();
 
     //    foreach (var globResult in allGlobs)
@@ -134,6 +140,10 @@ public class Builder
             loggers.Add(new ConsoleLogger(verbosity.Value));
             // new BinaryLogger() { Parameters = "msbuild.binlog"}
         }
+        else
+        {
+            loggers.Add(new ConsoleLogger(LoggerVerbosity.Quiet));
+        }
 
         var parameters = new BuildParameters(projectCollection)
         {
@@ -146,5 +156,10 @@ public class Builder
         };
 
         return parameters;
+    }
+
+    public void Dispose()
+    {
+        _buildManager?.Dispose();
     }
 }

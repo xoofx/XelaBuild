@@ -34,16 +34,16 @@ RunBenchmark(rootProject);
 static void RunBenchmark(string rootProject)
 {
     var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
+    
+
     // ------------------------------------------------------------------------------------------------------------------------
     var clock = Stopwatch.StartNew();
-    var builder = new Builder(rootProject);
-    
+    var provider = ProjectsProvider.FromList(Directory.EnumerateFiles(rootFolder, "*.csproj", SearchOption.AllDirectories), Path.Combine(rootFolder, "build"));
+    using var builder = new Builder(provider);
     DumpHeader("Load Projects and graph");
-    var group = new ProjectGroup(builder, ConfigurationHelper.Release());
+    var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
     Console.WriteLine($"Time to load: {clock.Elapsed.TotalMilliseconds}ms");
-
-    //return;
-
+    
     if (Debugger.IsAttached)
     {
         Console.WriteLine("Press key to attach to msbuild");
@@ -55,9 +55,9 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
             {
-            ("Restore + Build All",
+            ("Restore All",
                 null,
-                () => builder.Run(group, "Restore", "Build")
+                () => builder.Run(group, "Restore")
             ),
             ("Build All (Clean)",
                 () => builder.Run(group, "Clean"),
