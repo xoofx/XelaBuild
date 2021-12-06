@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using Microsoft.Build.Evaluation;
@@ -16,7 +14,6 @@ namespace BuildServer;
 public class ProjectGroup
 {
     private readonly ProjectCollection _projectCollection;
-    private readonly Dictionary<string, Project> _projects;
     private readonly Builder _builder;
     private ProjectGraph _projectGraph;
 
@@ -30,7 +27,6 @@ public class ProjectGroup
             ["IsGraphBuild"] = "true" // Make this upfront to include it in the cache file names
         };
 
-        _projects = new Dictionary<string, Project>();
         _projectCollection = new ProjectCollection(properties, null, null, ToolsetDefinitionLocations.Default, builder.MaxNodeCount, false, true, builder.ProjectCollectionRootElementCache);
         _builder = builder;
     }
@@ -44,11 +40,7 @@ public class ProjectGroup
     public Project FindProject(string projectPath)
     {
         if (projectPath == null) throw new ArgumentNullException(nameof(projectPath));
-        lock (_projects)
-        {
-            _projects.TryGetValue(projectPath, out var project);
-            return project;
-        }
+        return _projectCollection.LoadedProjects.FirstOrDefault(x => x.FullPath == projectPath);
     }
         
     internal void InitializeGraph()
@@ -56,7 +48,6 @@ public class ProjectGroup
         // Initialize the project graph
         var parallelism = 8;
         var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(x, _projectCollection.GlobalProperties));
-
         _projectGraph = new ProjectGraph(entryPoints, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
     }
 
@@ -64,10 +55,6 @@ public class ProjectGroup
     {
         // Don't use projectCollection.LoadProject it is locking more projectCollection
         var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
-        lock (_projects)
-        {
-            _projects[projectPath] = project;
-        }
         var instance = new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
         return instance;
     }
