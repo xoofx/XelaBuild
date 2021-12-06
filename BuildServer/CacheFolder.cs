@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -39,6 +40,14 @@ public class CacheFolder
         return GetCacheFilePath(filename);
     }
 
+    public IEnumerable<string> ListCacheFiles()
+    {
+        foreach (var file in Directory.EnumerateFiles(_cacheFolder, "*.cache"))
+        {
+            yield return file;
+        }
+    }
+    
     private string GetCacheFilePath(string projectBuildKey)
     {
         return Path.Combine(_cacheFolder, $"{projectBuildKey}.cache");
