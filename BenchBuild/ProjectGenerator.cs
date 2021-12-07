@@ -181,14 +181,17 @@ public static class {className} {{
 
     private void WriteDirectoryProps()
     {
+        // We are double hashing MSBuildProjectFile because of this issue https://github.com/dotnet/msbuild/issues/7131
         var content = @"<Project>
     <PropertyGroup>
         <UnityBuildDir>$(MSBuildThisFileDirectory)build\</UnityBuildDir>
         <Configuration Condition=""'$(Configuration)' == ''"">Debug</Configuration>
         <OutputPath>$(UnityBuildDir)\bin\$(Configuration)\</OutputPath>
         <OutDir>$(OutputPath)</OutDir>
-        <BaseIntermediateOutputPath>$(UnityBuildDir)obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
-        <UseCommonOutputDirectory>true</UseCommonOutputDirectory>        
+        <_MSBuildProjectFileHash>$(MSBuildProjectFile)-$([MSBuild]::StableStringHash($(MSBuildProjectFile)).ToString(`x8`))</_MSBuildProjectFileHash>
+        <BaseIntermediateOutputPath>$(UnityBuildDir)obj\$(MSBuildProjectName)-$([MSBuild]::StableStringHash($(_MSBuildProjectFileHash)).ToString(`x8`))\</BaseIntermediateOutputPath>
+        <UseCommonOutputDirectory>true</UseCommonOutputDirectory>
+        <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
     </PropertyGroup>
 </Project>
 ";
