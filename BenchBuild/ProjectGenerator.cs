@@ -193,6 +193,14 @@ public static class {className} {{
         <UseCommonOutputDirectory>true</UseCommonOutputDirectory>
         <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
     </PropertyGroup>
+    <ItemGroup Condition=""'$(IsGraphBuild)' == 'true'"">
+        <ProjectReferenceTargets Include=""CollectReferencePathWithRefAssemblies"" Targets=""CollectReferencePathWithRefAssemblies"" />
+    </ItemGroup>
+    <Target Name=""CollectReferencePathWithRefAssemblies"" DependsOnTargets=""Compile"" Returns=""@(_CollectReferencePathWithRefAssemblies)"">
+        <ItemGroup>
+            <_CollectReferencePathWithRefAssemblies Include=""@(ReferencePathWithRefAssemblies)"" KeepMetadata=""FullPath""/>
+        </ItemGroup>
+    </Target>
 </Project>
 ";
     //<ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">

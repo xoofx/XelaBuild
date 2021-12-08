@@ -104,7 +104,7 @@ public class Builder : IDisposable
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Down, verbosity);
     }
     
-    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> BuildRootOnlyWithParallelCache(ProjectGroup group, params string[] targets)
+    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> RunRootOnly(ProjectGroup group, params string[] targets)
     {
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Current);
     }
@@ -119,17 +119,20 @@ public class Builder : IDisposable
 
         GraphBuildCacheFilePathDelegate projectCacheFilePathDelegate = null;
 
+        var copyTargetNames = new List<string>(targetNames);
+
         // If we ask for building, cache the results
-        if (targetNames.Contains("Build"))
+        if (copyTargetNames.Contains("Build"))
         {
             projectCacheFilePathDelegate = GetResultsCacheFilePath;
             parameters.IsolateProjects = true;
+            copyTargetNames.Add("CollectReferencePathWithRefAssemblies");
         }
 
         _buildManager.BeginBuild(parameters);
         try
         {
-            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, targetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate);
+            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate);
             var submission = _buildManager.PendBuildRequest(graphBuildRequest);
             var result = submission.Execute();
             return result.ResultsByNode;

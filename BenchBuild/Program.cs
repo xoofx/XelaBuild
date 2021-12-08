@@ -69,7 +69,7 @@ static void RunBenchmark(string rootProject)
                 }),
             ("Restore All",
                 null,
-                () => builder.Run(group, "Restore")
+                () => builder.RunRootOnly(group, "Restore")
             ),
             ("Build All (Clean)",
                 () => builder.Run(group, "Clean"),
@@ -81,11 +81,11 @@ static void RunBenchmark(string rootProject)
             ),
             ("Build Root - No Changes",
                 null,
-                () => builder.BuildRootOnlyWithParallelCache(group, "Build")
+                () => builder.RunRootOnly(group, "Build")
             ),
             ("Build Root - 1 C# file changed in root", 
                 () => System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow),
-                () => builder.BuildRootOnlyWithParallelCache(group, "Build")
+                () => builder.RunRootOnly(group, "Build")
             ),
             ("Build All - 1 C# file changed in leaf", 
                 () => File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
