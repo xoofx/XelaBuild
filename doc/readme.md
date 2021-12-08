@@ -1,6 +1,77 @@
-# Notes
+# Fast up-to-date
 
-## Common msbuild items
+## Pseudo Algorithm
+
+The following pseudo algorithm describes the process to perform a quick up-to-date check:
+
+```js
+if ("csproj.state" file not exists || "csproj.cache" file not exists)
+  if (Restore().failed) return failed;
+  return Build();
+
+Reload:
+load "csproj" // could fail
+state = load "csproj.state" // could fail
+
+// Check if we need a restore
+nuget_package_reference_hash = compute_hash_from_package_reference()
+if ($(RestoreSuccess) != "True" || state.nuget_package_reference_hash != nuget_package_reference_hash)
+  if (Restore().success)
+      goto Reload
+  return failed; // waiting for filesystem change
+
+state.nuget_package_reference_hash = nuget_package_reference_hash
+
+// Check if all targets files hash changed
+msbuild_files_hash = compute_hash_from_msbuild_files()
+if (state.msbuild_files_hash != msbuild_files_hash) 
+  state.msbuild_files_hash = msbuild_files_hash
+  return Build(state);
+
+// Quick update from items in the solution + transitive hash of ProjectReference
+input_files_hash1 = compute_hash_items_and_project_reference()
+if (state.input_files_hash1 != input_files_hash1)
+  state.input_files_hash1 = input_files_hash1
+  return Build(state);
+
+// Compute the hash from the cache from resolved: Analyzer, Reference, UpToDateCheckInput, UpToDateCheckOutput, UpToDateCheckBuilt
+input_files_hash2 = compute_hash_csproj_cache()
+if (state.input_files_hash2 != input_files_hash2) 
+  return Build(state);
+
+// Nothing to build, everything is up to date
+return;
+
+compute_hash_from_package_reference()
+  compute hash from (all PackageReference + metadata + path resolved to $(NuGetPackageFolders)) + max(timestamp)
+
+compute_hash_from_msbuild_files()
+  compute hash from (csproj + all imports + $(ProjectAssetsFile)) of filenames + max(timestamp)
+
+compute_hash_items_and_project_reference()
+  compute hash from (EvaluatedItems Compile, Content, EmbeddedResource, Analyzer, Reference, hash(ProjectReference)) + max(timestamp)
+
+compute_hash_csproj_cache()
+  compute hash from (results "csproj.cache") + max(timestamp)
+
+Restore()
+  result = restore
+  if result.success
+    nuget_package_reference_hash = compute_hash_from_package_reference()
+    state.nuget_package_reference_hash = nuget_package_reference_hash
+    store state // could fail
+  return restore.status
+
+Build(state)
+  result = build
+  if result.success
+    state.input_files_hash2 = compute_hash_csproj_cache()
+    store state // could fail
+  return result
+```
+## Notes
+
+### Common msbuild items
 
 [Common MSBuild project items](https://docs.microsoft.com/en-us/visualstudio/msbuild/common-msbuild-project-items?view=vs-2022)
 
@@ -13,12 +84,12 @@
 - `<AssemblyMetadata>` Represents assembly attributes to be generated as `[AssemblyMetadata(key, value)]`.
 - `<InternalsVisibleTo>` Specifies assemblies to be emitted as `[InternalsVisibleTo(..)]` assembly attributes.
 
-## Properties
+### Properties
 
 - `ProjectAssetsFile`: json file (for restore)
 
 
-## Design time builds and Up-to-date checks
+### Design time builds and Up-to-date checks
 
 * [Up-to-date Check](https://github.com/dotnet/project-system/blob/main/docs/up-to-date-check.md)
 * [Up-to-date Check Implementation](https://github.com/dotnet/project-system/blob/main/docs/repo/up-to-date-check-implementation.md)
@@ -103,4 +174,27 @@ From [Microsoft.Managed.DesignTime.targets](https://github.com/dotnet/project-sy
   </Target>
 
 </Project>
+```
+
+### Differences between before restore and after
+
+NuGet [restore](https://docs.microsoft.com/en-us/nuget/reference/msbuild-targets#restore-target)
+
+After Restore:
+
+Items
+```
+"SourceRoot" = "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages\\" ["C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages\\"] #DirectMetadata=0
+"SourceRoot" = "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\" ["C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\"] #DirectMetadata=0
+"SourceRoot" = "C:\\Users\\alexa\\.nuget\\packages\\" ["C:\\Users\\alexa\\.nuget\\packages\\"] 
+```
+
+Properties
+```
+"NuGetPackageFolders"="C:\\Users\\alexa\\.nuget\\packages\\;C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages;C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder" ["C:\\Users\\alexa\\.nuget\\packages\\;C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages;C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"]
+"NuGetPackageRoot"="C:\\Users\\alexa\\.nuget\\packages\\" ["$(UserProfile)\\.nuget\\packages\\"]
+"NuGetProjectStyle"="PackageReference" ["PackageReference"]
+"NuGetToolVersion"="6.0.0" ["6.0.0"]
+"RestoreSuccess"="True" ["True"]
+"RestoreTool"="NuGet" ["NuGet"]
 ```
