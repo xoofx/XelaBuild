@@ -10,6 +10,8 @@ public static class ResultsHelper
 {
     public static void Verify(IReadOnlyDictionary<ProjectGraphNode, BuildResult> results)
     {
+        if (results == null) return;
+
         bool hasErrors = false;
         foreach (var result in results)
         {

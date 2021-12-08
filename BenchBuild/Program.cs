@@ -60,6 +60,13 @@ static void RunBenchmark(string rootProject)
     // ------------------------------------------------------------------------------------------------------------------------
     foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
             {
+            ("Load All Projects",
+                null,
+                () =>
+                {
+                    builder.LoadProjectGroup(ConfigurationHelper.Release());
+                    return null;
+                }),
             ("Restore All",
                 null,
                 () => builder.Run(group, "Restore")
@@ -105,7 +112,7 @@ public static class LibLeafClass {{
             var results = build();
             ResultsHelper.Verify(results);
 
-            Console.WriteLine($"[{i}] Time to build {results.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+            Console.WriteLine($"[{i}] Time to build {results?.Count ?? 0} projects: {clock.Elapsed.TotalMilliseconds}ms");
         }
 
         index++;
