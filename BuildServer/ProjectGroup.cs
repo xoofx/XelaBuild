@@ -11,7 +11,7 @@ namespace BuildServer;
 /// <summary>
 /// Simple hosting of BuildManager from msbuild
 /// </summary>
-public class ProjectGroup
+public class ProjectGroup : IDisposable
 {
     private readonly ProjectCollection _projectCollection;
     private readonly Builder _builder;
@@ -51,11 +51,23 @@ public class ProjectGroup
         _projectGraph = new ProjectGraph(entryPoints, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
     }
 
-    private ProjectInstance CreateProjectInstance(string projectPath, Dictionary<string, string> globalProperties, ProjectCollection projectCollection)
+    private ProjectInstance CreateProjectInstance(string projectPath, IDictionary<string, string> globalProperties, ProjectCollection projectCollection)
     {
         // Don't use projectCollection.LoadProject it is locking more projectCollection
         var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
         var instance = new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
         return instance;
+    }
+
+    public (Project, ProjectInstance) ReloadProject(Project project)
+    {
+        ProjectCollection.UnloadProject(project);
+        return (project, CreateProjectInstance(project.FullPath, project.GlobalProperties, ProjectCollection));
+    }
+
+    public void Dispose()
+    {
+        _projectCollection.UnloadAllProjects();
+        _projectCollection.Dispose();
     }
 }
