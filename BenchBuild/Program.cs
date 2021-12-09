@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;using System.Runtime.CompilerServices;
 using BenchBuild;
 using BuildServer;
 using Microsoft.Build.Execution;
@@ -25,11 +26,8 @@ MsBuildHelper.RegisterCustomMsBuild();
 // ------------------------------------------------------------------------------------------------------------------------
 // generate testing projects if necessary
 var rootProject = Path.Combine(Environment.CurrentDirectory, "projects", "LibRoot", "LibRoot.csproj");
-if (!File.Exists(rootProject))
-{
-    DumpHeader("Generate Projects");
-    rootProject = ProjectGenerator.Generate();
-}
+DumpHeader("Generate Projects");
+rootProject = ProjectGenerator.Generate();
 
 RunBenchmark(rootProject);
 
@@ -48,6 +46,16 @@ static void RunBenchmark(string rootProject)
     using var builder = new Builder(provider);
     var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
     Console.WriteLine($"Time to load and evaluate {group.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+
+    //clock.Restart();
+    //var countReload = 100;
+    //for (int i = 0; i < countReload; i++)
+    //{
+    //    var libroot = group.ProjectCollection.LoadedProjects.First(x => x.FullPath.Contains("LibRoot"));
+    //    group.ReloadProject(libroot);
+    //}
+    //Console.WriteLine($"Time to reload {clock.Elapsed.TotalMilliseconds / countReload}ms");
+    //return;
 
     if (Debugger.IsAttached)
     {
@@ -124,7 +132,18 @@ public static class LibLeafClass {{
 
 static void DumpHeader(string header)
 {
+    if (DumpHeaderState.DumpHeaderCount > 0)
+    {
+        Console.WriteLine();
+    }
+    DumpHeaderState.DumpHeaderCount++;
     Console.WriteLine("============================================================================");
     Console.WriteLine(header);
     Console.WriteLine("****************************************************************************");
 }
+
+static class DumpHeaderState
+{
+    public static int DumpHeaderCount = 0;
+}
+

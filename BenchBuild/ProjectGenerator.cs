@@ -17,6 +17,8 @@ namespace BenchBuild;
 /// </summary>
 public class ProjectGenerator
 {
+    private const string Version = "1.0"; // Update this number when the generator is updated
+    private const string RootProjectName = "LibRoot";
 
     private readonly string _projectsRootFolder;
 
@@ -39,23 +41,40 @@ public class ProjectGenerator
     public static string Generate(string projectsRootFolder = null, ProjectGeneratorOptions options = null)
     {
         var rootFolder = projectsRootFolder ?? Path.Combine(Environment.CurrentDirectory, "projects");
-        var projectGenerator = new ProjectGenerator(rootFolder);
-        projectGenerator.Generate(options ?? new ProjectGeneratorOptions());
-        //projectGenerator.Dump();
-        //if (Directory.Exists(projectsRootFolder))
-        //{
-        //    try
-        //    {
-        //        Directory.Delete(projectsRootFolder, true);
-        //    }
-        //    catch
-        //    {
-        //        // ignore
-        //    }
-        //}
-        projectGenerator.WriteAllProjects();
 
-        return $"{Path.Combine(projectGenerator._projectsRootFolder, projectGenerator._rootProject.Name, projectGenerator._rootProject.Name)}.csproj"; 
+        var versionFile = Path.Combine(rootFolder, "version.txt");
+        bool generate = !File.Exists(versionFile);
+        if (!generate)
+        {
+            generate = File.ReadAllText(versionFile) != Version;
+        }
+
+        if (generate)
+        {
+            var projectGenerator = new ProjectGenerator(rootFolder);
+            projectGenerator.Generate(options ?? new ProjectGeneratorOptions());
+            if (Directory.Exists(rootFolder))
+            {
+                try
+                {
+                    Directory.Delete(rootFolder, true);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            projectGenerator.WriteAllProjects();
+            File.WriteAllText(versionFile, Version);
+            Console.WriteLine($"Generated {projectGenerator._allProjects.Count} projects (depth: {projectGenerator._levelMax}) with {projectGenerator._allProjects.SelectMany(x => x.CsFiles).Count()} C# files");
+        }
+        else
+        {
+            Console.WriteLine("Projects up-to-date");
+        }
+
+        return $"{Path.Combine(rootFolder, RootProjectName, RootProjectName)}.csproj"; 
     }
     
     private void Generate(ProjectGeneratorOptions options)
@@ -65,7 +84,7 @@ public class ProjectGenerator
 
     private void CreateProjectStructure(ProjectGeneratorOptions options)
     {
-        _rootProject = CreateProject("LibRoot");
+        _rootProject = CreateProject(RootProjectName);
 
         if (options.DownLevelRatio <= 0 || options.DownLevelRatio > 1) throw new InvalidOperationException($"Invalid value for {nameof(ProjectGeneratorOptions.DownLevelRatio)}: {options.DownLevelRatio}. Must be > 0 and <= 1");
 
@@ -162,7 +181,7 @@ public class ProjectGenerator
         var numberOfCsFiles = (int)Math.Pow(4, project.Level);
         var dependents = project.Dependencies.Select(x => x.Name).ToList();
 
-        Console.WriteLine($"Generating {csprojFilePath} {(int)Math.Pow(4, project.Level)}");
+        // Console.WriteLine($"Generating {csprojFilePath} {(int)Math.Pow(4, project.Level)}");
         for (int i = 0; i < numberOfCsFiles; i++)
         {
             var className = i == 0 ? $"{project.Name}Class" : $"{project.Name}Class{i}";
@@ -176,6 +195,7 @@ public static class {className} {{
 }}
 ";
             File.WriteAllText(csFilePath, NormalizeEOL(csContent));
+            project.CsFiles.Add(csFilePath);
         }
     }
 
@@ -224,7 +244,7 @@ public static class {className} {{
     private void DumpProject(Project project, int level)
     {
         var indent = new string(' ', level);
-        Console.WriteLine($"{indent}{project.Name}");
+        //Console.WriteLine($"{indent}{project.Name}");
         foreach (var projectDependency in project.Dependencies)
         {
             DumpProject(projectDependency, level + 1);
@@ -243,12 +263,15 @@ public static class {className} {{
         public Project()
         {
             Dependencies = new List<Project>();
+            CsFiles = new List<string>();
         }
 
         public string Name { get; init; }
 
         public int Level { get; init; }
-        
+
+        public List<string> CsFiles { get; }
+
         public List<Project> Dependencies { get; }
     }
 }
