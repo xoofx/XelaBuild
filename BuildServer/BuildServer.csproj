@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>net6.0</TargetFramework>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <!--<ImplicitUsings>enable</ImplicitUsings>-->
     <!--<Nullable>enable</Nullable>-->
   </PropertyGroup>

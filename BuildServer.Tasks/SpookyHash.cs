@@ -10,136 +10,338 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Security;
-using System.Text.RegularExpressions;
 
 namespace BuildServer.Tasks;
 
 /// <summary>Provides an implementation of SpookyHash, either incrementally or (by static methods) in a single
 /// operation.</summary>
-public struct SpookyHash
+internal struct SpookyHash
 {
     private const ulong SpookyConst = 0xDEADBEEFDEADBEEF;
     private const int NumVars = 12;
     private const int BlockSize = NumVars * 8;
     private const int BufSize = 2 * BlockSize;
-    private static readonly bool AllowUnalignedRead = AttemptDetectAllowUnalignedRead();
 
-    [ExcludeFromCodeCoverage]
-    private static bool AttemptDetectAllowUnalignedRead()
+    public static unsafe void Hash128(string message, out ulong hash1, out ulong hash2)
     {
-        switch (Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE"))
+        hash1 = SpookyConst;
+        hash2 = SpookyConst;
+        fixed (void* pMessage = message)
         {
-            case "x86":
-            case "AMD64": // Known to tolerate unaligned-reads well.
-                return true;
-        }
-
-        try
-        {
-            return FindAlignSafetyFromUname();
-        }
-        catch
-        {
-            return false;
+            Hash128(pMessage, message.Length, ref hash1, ref hash2);
         }
     }
 
-    [SecuritySafeCritical]
-    [ExcludeFromCodeCoverage]
-    private static bool FindAlignSafetyFromUname()
+    /// <summary>Calculates the 128-bit SpookyHash for a message.</summary>
+    /// <param name="message">Pointer to the first element to hash.</param>
+    /// <param name="length">The size, in bytes, of the elements to hash.</param>
+    /// <param name="hash1">Takes as input a seed value, returns as first output half of the hash.</param>
+    /// <param name="hash2">Takes as input a seed value, returns as second output half of the hash.</param>
+    /// <remarks>This is not a CLS-compliant method, and is not accessible by some .NET languages.</remarks>
+    /// <exception cref="AccessViolationException">This is an unsafe method. If you attempt to read past the buffer
+    /// that <paramref name="message"/> points too, you may raise an <see cref="AccessViolationException"/>, or you
+    /// may have incorrect results.</exception>
+    public static unsafe void Hash128(void* message, int length, ref ulong hash1, ref ulong hash2)
     {
-        ProcessStartInfo startInfo = new ProcessStartInfo("uname", "-p")
+        if ((int)message == 0)
         {
-            CreateNoWindow = true,
-            ErrorDialog = false,
-            LoadUserProfile = false,
-            RedirectStandardOutput = true,
-            UseShellExecute = false
-        };
-        try
-        {
-            using (Process proc = new Process())
-            {
-                proc.StartInfo = startInfo;
-                proc.Start();
-                using (StreamReader output = proc.StandardOutput)
-                {
-                    string line = output.ReadLine();
-                    if (line != null)
-                    {
-                        string trimmed = line.Trim();
-                        if (trimmed.Length != 0)
-                        {
-                            switch (trimmed)
-                            {
-                                case "amd64":
-                                case "i386":
-                                case "x86_64":
-                                case "x64":
-                                    return true; // Known to tolerate unaligned-reads well.
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // We don't care why we failed, as there are many possible reasons, and they all amount
-            // to our not having an answer. Just eat the exception.
+            hash1 = 0;
+            hash2 = 0;
+            return;
         }
 
-        startInfo.Arguments = "-m";
-        try
+        if (length < BufSize)
         {
-            using (Process proc = new Process())
-            {
-                proc.StartInfo = startInfo;
-                proc.Start();
-                using (StreamReader output = proc.StandardOutput)
-                {
-                    string line = output.ReadLine();
-                    if (line != null)
-                    {
-                        string trimmed = line.Trim();
-                        if (trimmed.Length != 0)
-                        {
-                            switch (trimmed)
-                            {
-                                case "amd64":
-                                case "i386":
-                                case "i686":
-                                case "i686-64":
-                                case "i86pc":
-                                case "x86_64":
-                                case "x64":
-                                    return true; // Known to tolerate unaligned-reads well.
-                                default:
-                                    return new Regex(@"i\d86").IsMatch(trimmed);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Again, just eat the exception.
+            Short(message, length, ref hash1, ref hash2);
+            return;
         }
 
-        return false;
+        ulong h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11;
+
+        h0 = h3 = h6 = h9 = hash1;
+        h1 = h4 = h7 = h10 = hash2;
+        h2 = h5 = h8 = h11 = SpookyConst;
+
+        ulong* p64 = (ulong*)message;
+
+        ulong* end = p64 + length / BlockSize * NumVars;
+        ulong* buf = stackalloc ulong[NumVars];
+        if (((long)message & 7) == 0)
+        {
+            while (p64 < end)
+            {
+                h0 += p64[0];
+                h2 ^= h10;
+                h11 ^= h0;
+                h0 = h0 << 11 | h0 >> -11;
+                h11 += h1;
+                h1 += p64[1];
+                h3 ^= h11;
+                h0 ^= h1;
+                h1 = h1 << 32 | h1 >> 32;
+                h0 += h2;
+                h2 += p64[2];
+                h4 ^= h0;
+                h1 ^= h2;
+                h2 = h2 << 43 | h2 >> -43;
+                h1 += h3;
+                h3 += p64[3];
+                h5 ^= h1;
+                h2 ^= h3;
+                h3 = h3 << 31 | h3 >> -31;
+                h2 += h4;
+                h4 += p64[4];
+                h6 ^= h2;
+                h3 ^= h4;
+                h4 = h4 << 17 | h4 >> -17;
+                h3 += h5;
+                h5 += p64[5];
+                h7 ^= h3;
+                h4 ^= h5;
+                h5 = h5 << 28 | h5 >> -28;
+                h4 += h6;
+                h6 += p64[6];
+                h8 ^= h4;
+                h5 ^= h6;
+                h6 = h6 << 39 | h6 >> -39;
+                h5 += h7;
+                h7 += p64[7];
+                h9 ^= h5;
+                h6 ^= h7;
+                h7 = h7 << 57 | h7 >> -57;
+                h6 += h8;
+                h8 += p64[8];
+                h10 ^= h6;
+                h7 ^= h8;
+                h8 = h8 << 55 | h8 >> -55;
+                h7 += h9;
+                h9 += p64[9];
+                h11 ^= h7;
+                h8 ^= h9;
+                h9 = h9 << 54 | h9 >> -54;
+                h8 += h10;
+                h10 += p64[10];
+                h0 ^= h8;
+                h9 ^= h10;
+                h10 = h10 << 22 | h10 >> -22;
+                h9 += h11;
+                h11 += p64[11];
+                h1 ^= h9;
+                h10 ^= h11;
+                h11 = h11 << 46 | h11 >> -46;
+                h10 += h0;
+                p64 += NumVars;
+            }
+        }
+        else
+        {
+            while (p64 < end)
+            {
+                MemoryCopy(buf, p64, BlockSize);
+
+                h0 += buf[0];
+                h2 ^= h10;
+                h11 ^= h0;
+                h0 = h0 << 11 | h0 >> -11;
+                h11 += h1;
+                h1 += buf[1];
+                h3 ^= h11;
+                h0 ^= h1;
+                h1 = h1 << 32 | h1 >> 32;
+                h0 += h2;
+                h2 += buf[2];
+                h4 ^= h0;
+                h1 ^= h2;
+                h2 = h2 << 43 | h2 >> -43;
+                h1 += h3;
+                h3 += buf[3];
+                h5 ^= h1;
+                h2 ^= h3;
+                h3 = h3 << 31 | h3 >> -31;
+                h2 += h4;
+                h4 += buf[4];
+                h6 ^= h2;
+                h3 ^= h4;
+                h4 = h4 << 17 | h4 >> -17;
+                h3 += h5;
+                h5 += buf[5];
+                h7 ^= h3;
+                h4 ^= h5;
+                h5 = h5 << 28 | h5 >> -28;
+                h4 += h6;
+                h6 += buf[6];
+                h8 ^= h4;
+                h5 ^= h6;
+                h6 = h6 << 39 | h6 >> -39;
+                h5 += h7;
+                h7 += buf[7];
+                h9 ^= h5;
+                h6 ^= h7;
+                h7 = h7 << 57 | h7 >> -57;
+                h6 += h8;
+                h8 += buf[8];
+                h10 ^= h6;
+                h7 ^= h8;
+                h8 = h8 << 55 | h8 >> -55;
+                h7 += h9;
+                h9 += buf[9];
+                h11 ^= h7;
+                h8 ^= h9;
+                h9 = h9 << 54 | h9 >> -54;
+                h8 += h10;
+                h10 += buf[10];
+                h0 ^= h8;
+                h9 ^= h10;
+                h10 = h10 << 22 | h10 >> -22;
+                h9 += h11;
+                h11 += buf[11];
+                h1 ^= h9;
+                h10 ^= h11;
+                h11 = h11 << 46 | h11 >> -46;
+                h10 += h0;
+                p64 += NumVars;
+            }
+        }
+
+        int remainder = length - (int)((byte*)end - (byte*)message);
+        if (remainder != 0)
+        {
+            MemoryCopy(buf, end, remainder);
+        }
+
+        MemoryZero((byte*)buf + remainder, BlockSize - remainder);
+        ((byte*)buf)[BlockSize - 1] = (byte)remainder;
+
+        h0 += buf[0];
+        h1 += buf[1];
+        h2 += buf[2];
+        h3 += buf[3];
+        h4 += buf[4];
+        h5 += buf[5];
+        h6 += buf[6];
+        h7 += buf[7];
+        h8 += buf[8];
+        h9 += buf[9];
+        h10 += buf[10];
+        h11 += buf[11];
+        h11 += h1;
+        h2 ^= h11;
+        h1 = h1 << 44 | h1 >> -44;
+        h0 += h2;
+        h3 ^= h0;
+        h2 = h2 << 15 | h2 >> -15;
+        h1 += h3;
+        h4 ^= h1;
+        h3 = h3 << 34 | h3 >> -34;
+        h2 += h4;
+        h5 ^= h2;
+        h4 = h4 << 21 | h4 >> -21;
+        h3 += h5;
+        h6 ^= h3;
+        h5 = h5 << 38 | h5 >> -38;
+        h4 += h6;
+        h7 ^= h4;
+        h6 = h6 << 33 | h6 >> -33;
+        h5 += h7;
+        h8 ^= h5;
+        h7 = h7 << 10 | h7 >> -10;
+        h6 += h8;
+        h9 ^= h6;
+        h8 = h8 << 13 | h8 >> -13;
+        h7 += h9;
+        h10 ^= h7;
+        h9 = h9 << 38 | h9 >> -38;
+        h8 += h10;
+        h11 ^= h8;
+        h10 = h10 << 53 | h10 >> -53;
+        h9 += h11;
+        h0 ^= h9;
+        h11 = h11 << 42 | h11 >> -42;
+        h10 += h0;
+        h1 ^= h10;
+        h0 = h0 << 54 | h0 >> -54;
+        h11 += h1;
+        h2 ^= h11;
+        h1 = h1 << 44 | h1 >> -44;
+        h0 += h2;
+        h3 ^= h0;
+        h2 = h2 << 15 | h2 >> -15;
+        h1 += h3;
+        h4 ^= h1;
+        h3 = h3 << 34 | h3 >> -34;
+        h2 += h4;
+        h5 ^= h2;
+        h4 = h4 << 21 | h4 >> -21;
+        h3 += h5;
+        h6 ^= h3;
+        h5 = h5 << 38 | h5 >> -38;
+        h4 += h6;
+        h7 ^= h4;
+        h6 = h6 << 33 | h6 >> -33;
+        h5 += h7;
+        h8 ^= h5;
+        h7 = h7 << 10 | h7 >> -10;
+        h6 += h8;
+        h9 ^= h6;
+        h8 = h8 << 13 | h8 >> -13;
+        h7 += h9;
+        h10 ^= h7;
+        h9 = h9 << 38 | h9 >> -38;
+        h8 += h10;
+        h11 ^= h8;
+        h10 = h10 << 53 | h10 >> -53;
+        h9 += h11;
+        h0 ^= h9;
+        h11 = h11 << 42 | h11 >> -42;
+        h10 += h0;
+        h1 ^= h10;
+        h0 = h0 << 54 | h0 >> -54;
+        h11 += h1;
+        h2 ^= h11;
+        h1 = h1 << 44 | h1 >> -44;
+        h0 += h2;
+        h3 ^= h0;
+        h2 = h2 << 15 | h2 >> -15;
+        h1 += h3;
+        h4 ^= h1;
+        h3 = h3 << 34 | h3 >> -34;
+        h2 += h4;
+        h5 ^= h2;
+        h4 = h4 << 21 | h4 >> -21;
+        h3 += h5;
+        h6 ^= h3;
+        h5 = h5 << 38 | h5 >> -38;
+        h4 += h6;
+        h7 ^= h4;
+        h6 = h6 << 33 | h6 >> -33;
+        h5 += h7;
+        h8 ^= h5;
+        h7 = h7 << 10 | h7 >> -10;
+        h6 += h8;
+        h9 ^= h6;
+        h8 = h8 << 13 | h8 >> -13;
+        h7 += h9;
+        h10 ^= h7;
+        h9 = h9 << 38 | h9 >> -38;
+        h8 += h10;
+        h11 ^= h8;
+        h10 = h10 << 53 | h10 >> -53;
+        h9 += h11;
+        h0 ^= h9;
+        h10 += h0;
+        h1 ^= h10;
+        h0 = h0 << 54 | h0 >> -54;
+        hash2 = h1;
+        hash1 = h0;
     }
 
     [SecurityCritical]
     private static unsafe void Short(void* message, int length, ref ulong hash1, ref ulong hash2)
     {
-        if (!AllowUnalignedRead && length != 0 && ((long)message & 7) != 0)
+        if (length != 0 && ((long)message & 7) != 0)
         {
             ulong* buf = stackalloc ulong[2 * NumVars];
             MemoryCopy(buf, message, length);
@@ -436,7 +638,7 @@ public struct SpookyHash
 
     public unsafe void Update(ulong message)
     {
-        if ((AllowUnalignedRead || (_remainder & (sizeof(ulong) - 1)) == 0) && _remainder + sizeof(ulong) < BufSize)
+        if ((_remainder & (sizeof(ulong) - 1)) == 0 && _remainder + sizeof(ulong) < BufSize)
         {
             fixed (ulong* uptr = _data)
                 *(ulong*)((byte*)uptr + _remainder) = message;
@@ -653,7 +855,7 @@ public struct SpookyHash
 
             ulong* end = p64 + length / BlockSize * NumVars;
             byte remainder = (byte)(length - ((byte*)end - (byte*)p64));
-            if (AllowUnalignedRead || ((long)message & 7) == 0)
+            if (((long)message & 7) == 0)
             {
                 while (p64 < end)
                 {

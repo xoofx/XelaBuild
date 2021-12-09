@@ -8,11 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!--<PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />-->
-    <!--<PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />-->
-  </ItemGroup>
-
-  <ItemGroup>
+    <ProjectReference Include="..\BuildServer.Tasks\BuildServer.Tasks.csproj" />
     <ProjectReference Include="..\BuildServer\BuildServer.csproj" />
   </ItemGroup>
 

@@ -126,7 +126,7 @@ public class Builder : IDisposable
         {
             projectCacheFilePathDelegate = GetResultsCacheFilePath;
             parameters.IsolateProjects = true;
-            copyTargetNames.Add("CollectReferencePathWithRefAssemblies");
+            copyTargetNames.Add("CollectAssemblyReferences");
         }
 
         _buildManager.BeginBuild(parameters);
