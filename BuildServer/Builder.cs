@@ -24,7 +24,6 @@ public class Builder : IDisposable
     internal readonly int MaxNodeCount = 10;
 
     private readonly BuildManager _buildManager;
-    private readonly CacheFolder _cacheFolder;
     private readonly List<ProjectGroup> _groups;
     private BlockingCollection<Project> _projectsCreated;
 
@@ -38,7 +37,6 @@ public class Builder : IDisposable
         // By default for the build folder:
         // - if we have a solution output to the `build` folder in the same folder than the solution
         // - if we have a project file to the `build` folder in 2 folders above the project (so usually same level than the solution)
-        _cacheFolder = new CacheFolder(Path.Combine(Provider.BuildFolder, "caches"));
 
         _buildManager = new BuildManager();
 
@@ -58,8 +56,6 @@ public class Builder : IDisposable
     }
 
     public ProjectsProvider Provider { get; }
-
-    public CacheFolder CacheFolder => _cacheFolder;
 
     internal ProjectCollectionRootElementCache ProjectCollectionRootElementCache { get; }
 
@@ -124,7 +120,7 @@ public class Builder : IDisposable
         // If we ask for building, cache the results
         if (copyTargetNames.Contains("Build"))
         {
-            projectCacheFilePathDelegate = GetResultsCacheFilePath;
+            projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetBuildResultCacheFilePath();
             parameters.IsolateProjects = true;
             copyTargetNames.Add("CollectAssemblyReferences");
         }
@@ -141,11 +137,6 @@ public class Builder : IDisposable
         {
             _buildManager.EndBuild();
         }
-    }
-
-    private string GetResultsCacheFilePath(ProjectGraphNode graphnode)
-    {
-        return _cacheFolder.GetCacheFilePath(graphnode.ProjectInstance);
     }
 
     private BuildParameters CreateParameters(ProjectCollection projectCollection, LoggerVerbosity? verbosity)
