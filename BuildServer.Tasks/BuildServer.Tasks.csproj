@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <Compile Include="..\BuildServer\AssemblyGroup.cs" Link="AssemblyGroup.cs" />
+    <Compile Include="..\BuildServer\FileUtilities.cs" Link="FileUtilities.cs" />
+    <Compile Include="..\BuildServer\SpookyHash.cs" Link="SpookyHash.cs" />
   </ItemGroup>
 
   <ItemGroup>

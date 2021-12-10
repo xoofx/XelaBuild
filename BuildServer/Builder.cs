@@ -60,7 +60,28 @@ public class Builder : IDisposable
     internal ProjectCollectionRootElementCache ProjectCollectionRootElementCache { get; }
 
     internal BuildManager BuildManager => _buildManager;
+    
+    public void Initialize(params IReadOnlyDictionary<string, string>[] arrayOfGlobalProperties)
+    {
+        foreach (var properties in arrayOfGlobalProperties)
+        {
+            LoadProjectGroup(properties);
+        }
 
+        LoadCachedBuildResults();
+    }
+
+    public void Build()
+    {
+
+
+
+
+
+
+
+
+    }
 
     public ProjectGroup LoadProjectGroup(IReadOnlyDictionary<string, string> properties)
     {
@@ -68,6 +89,34 @@ public class Builder : IDisposable
         group.InitializeGraph();
         _groups.Add(group);
         return group;
+    }
+
+    private void LoadCachedBuildResults()
+    {
+        var cacheFiles = new List<string>();
+        foreach (var group in _groups)
+        {
+            foreach (var project in group.Projects)
+            {
+                var cacheFile = project.GetBuildResultCacheFilePath();
+                if (File.Exists(cacheFile))
+                {
+                    cacheFiles.Add(cacheFile);
+                }
+            }
+        }
+        var results = _buildManager.LoadCachedResults(cacheFiles.ToArray());
+
+        // Attach results back to projects
+        foreach (var pair in results)
+        {
+            foreach (var group in _groups)
+            {
+                var projectState = group.FindProjectState(pair.Key.ProjectFullPath);
+                projectState.LastResultTime = File.GetLastWriteTimeUtc(projectState.GetBuildResultCacheFilePath());
+                projectState.LastResult = pair.Value;
+            }
+        }
     }
 
     //public void DumpRootGlobs(ProjectGraph graph)

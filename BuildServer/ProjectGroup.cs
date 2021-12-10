@@ -10,7 +10,7 @@ using Microsoft.Build.Graph;
 namespace BuildServer;
 
 /// <summary>
-/// Simple hosting of BuildManager from msbuild
+/// A group of projects to build for a specific configuration.
 /// </summary>
 public class ProjectGroup : IDisposable
 {
@@ -41,6 +41,17 @@ public class ProjectGroup : IDisposable
 
     public ProjectGraph ProjectGraph => _projectGraph;
 
+    public IEnumerable<ProjectState> Projects
+    {
+        get
+        {
+            foreach (var projectNode in _projectGraph.ProjectNodesTopologicallySorted)
+            {
+                yield return this.FindProjectState(projectNode);
+            }
+        }
+    }
+
     public ProjectState FindProjectState(string projectPath)
     {
         if (projectPath == null) throw new ArgumentNullException(nameof(projectPath));
@@ -52,7 +63,7 @@ public class ProjectGroup : IDisposable
     {
         // Initialize the project graph
         var parallelism = 8;
-        var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(x, _projectCollection.GlobalProperties));
+        var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(FileUtilities.NormalizePath(x), _projectCollection.GlobalProperties));
         _projectGraph = new ProjectGraph(entryPoints, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
 
         // Group graph node with Project
@@ -80,6 +91,9 @@ public class ProjectGroup : IDisposable
 
     private ProjectInstance CreateProjectInstance(string projectPath, IDictionary<string, string> globalProperties, ProjectCollection projectCollection)
     {
+        // Always normalize the path (as we use it for mapping)
+        projectPath = FileUtilities.NormalizePath(projectPath);
+
         ProjectState projectState;
         lock (_projectStates)
         {

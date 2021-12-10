@@ -14,13 +14,13 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security;
 
-namespace BuildServer.Tasks;
+namespace BuildServer;
 
 /// <summary>Provides an implementation of SpookyHash, either incrementally or (by static methods) in a single
 /// operation.</summary>
 internal struct SpookyHash
 {
-    private const ulong SpookyConst = 0xDEADBEEFDEADBEEF;
+    public const ulong SpookyConst = 0xDEADBEEFDEADBEEF;
     private const int NumVars = 12;
     private const int BlockSize = NumVars * 8;
     private const int BufSize = 2 * BlockSize;
@@ -633,6 +633,21 @@ internal struct SpookyHash
                     Update(ptr, item.Length << 1);
                 }
             }
+        }
+    }
+
+    public unsafe void Update(long message)
+    {
+        if ((_remainder & (sizeof(long) - 1)) == 0 && _remainder + sizeof(long) < BufSize)
+        {
+            fixed (ulong* uptr = _data)
+                *(long*)((byte*)uptr + _remainder) = message;
+            _length += sizeof(ulong);
+            _remainder += sizeof(ulong);
+        }
+        else
+        {
+            Update(&message, sizeof(long));
         }
     }
 
