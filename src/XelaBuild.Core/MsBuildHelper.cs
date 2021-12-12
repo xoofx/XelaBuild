@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Loader;
 using Microsoft.Build.CommandLine;
 using Microsoft.Build.Locator;
@@ -33,19 +32,10 @@ public static class MsBuildHelper
     /// <returns>The exit code</returns>
     public static int Run(string[] args)
     {
-        var msbuildPath = RegisterCustomMsBuild();
-        var assemblyPath = Path.Combine(msbuildPath, "MSBuild.dll");
-
-        var assembly = Assembly.LoadFile(assemblyPath);
-
-        var type = assembly.GetType("Microsoft.Build.CommandLine.MSBuildApp");
-
-        var mainMethod = type.GetMethod("Main", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-
-        return (int)mainMethod.Invoke(null, new object[] { args });
+        return MSBuildApp.Main(args);
     }
 
-    public static string RegisterCustomMsBuild()
+    public static void RegisterCustomMsBuild()
     {
         var latest = MSBuildLocator.QueryVisualStudioInstances().FirstOrDefault(x => x.Version.Major == 6);
 
@@ -55,18 +45,7 @@ public static class MsBuildHelper
         }
 
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
-
         var msbuildPath = Path.GetFullPath(Path.GetDirectoryName(typeof(MSBuildApp).Assembly.Location));
-
-        // Copy any existing file from current SDK to the local msbuild
-        //foreach (var file in Directory.EnumerateFiles(latest.MSBuildPath))
-        //{
-        //    var destFile = Path.Combine(msbuildPath, Path.GetFileName(file));
-        //    if (!File.Exists(destFile))
-        //    {
-        //        File.Copy(file, destFile);
-        //    }
-        //}
 
         // Try to load from 
         AssemblyLoadContext.Default.Resolving += (context, name) =>
@@ -103,9 +82,7 @@ public static class MsBuildHelper
         {
             msbuildPath,
         });
-        return msbuildPath;
     }
-
 
     private static string GetVisualStudioInstanceToString(VisualStudioInstance visualStudioInstance)
     {

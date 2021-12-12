@@ -1,4 +1,9 @@
-﻿namespace XelaBuild.ProjectGen;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace XelaBuild.ProjectGen;
 
 /// <summary>
 /// Generates a collection of C# projects with a root project, a leaf project and intermediate dependent projects.

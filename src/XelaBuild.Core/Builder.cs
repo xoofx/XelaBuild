@@ -15,7 +15,11 @@ namespace XelaBuild.Core;
 /// </summary>
 public class Builder : IDisposable
 {
+#if DEBUG
+    internal readonly int MaxNodeCount = 1;
+#else
     internal readonly int MaxNodeCount = 10;
+#endif
 
     private readonly BuildManager _buildManager;
     private readonly List<ProjectGroup> _groups;
@@ -152,7 +156,6 @@ public class Builder : IDisposable
         {
             projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetBuildResultCacheFilePath();
             parameters.IsolateProjects = true;
-            copyTargetNames.Add("CollectAssemblyReferences");
         }
 
         _buildManager.BeginBuild(parameters);

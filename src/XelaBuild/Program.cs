@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using Microsoft.Build.Execution;
-using Microsoft.Build.Graph;
 using XelaBuild;
 using XelaBuild.Core;
+
+// Make sure that we are using our local copy of msbuild
+MsBuildHelper.RegisterCustomMsBuild();
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
 // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
@@ -17,130 +16,20 @@ if (MsBuildHelper.IsCommandLineArgsForMsBuild(args))
     return;
 }
 
+// Override msbuild targets to use our special targets file to inject our tasks
+Environment.SetEnvironmentVariable("CustomAfterMicrosoftCommonTargets", Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "XelaBuild.targets")));
+
+if (args.Length != 1 || !args[0].EndsWith(".sln"))
+{
+    Console.WriteLine("xelabuild [path_to_solution.sln]");
+    Environment.Exit(1);
+    return;
+}
+
+var solutionPath = Path.Combine(Environment.CurrentDirectory, args[0]);
+
 // BEGIN
 // ------------------------------------------------------------------------------------------------------------------------
-// Make sure that we are using our local copy of msbuild
-MsBuildHelper.RegisterCustomMsBuild();
-
-
-//RunBenchmark(rootProject);
+Benchmarker.Run(solutionPath);
 
 // This need to run in a separate method to allow msbuild to load the .NET assemblies before in MsBuildHelper.RegisterCustomMsBuild.
-static void RunBenchmark(string rootProject)
-{
-    var rootFolder = Path.GetDirectoryName(Path.GetDirectoryName(rootProject));
-    
-    // ------------------------------------------------------------------------------------------------------------------------
-    var clock = Stopwatch.StartNew();
-
-    DumpHeader("Load Projects and graph");
-    clock.Restart();
-    //var provider = ProjectsProvider.FromList(Directory.EnumerateFiles(rootFolder, "*.csproj", SearchOption.AllDirectories), Path.Combine(rootFolder, "build"));
-    var provider = ProjectsProvider.FromList(new[] { rootProject }, Path.Combine(rootFolder, "build"));
-    using var builder = new Builder(provider);
-    var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
-    Console.WriteLine($"Time to load and evaluate {group.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
-
-    //clock.Restart();
-    //var countReload = 100;
-    //for (int i = 0; i < countReload; i++)
-    //{
-    //    var libroot = group.ProjectCollection.LoadedProjects.First(x => x.FullPath.Contains("LibRoot"));
-    //    group.ReloadProject(libroot);
-    //}
-    //Console.WriteLine($"Time to reload {clock.Elapsed.TotalMilliseconds / countReload}ms");
-    //return;
-
-    if (Debugger.IsAttached)
-    {
-        Console.WriteLine("Press key to attach to msbuild");
-        Console.ReadLine();
-    }
-
-    int index = 0;
-    const int runCount = 5;
-    // ------------------------------------------------------------------------------------------------------------------------
-    foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
-            {
-            ("Load All Projects",
-                null,
-                () =>
-                {
-                    builder.LoadProjectGroup(ConfigurationHelper.Release());
-                    return null;
-                }),
-            ("Restore All",
-                null,
-                () => builder.RunRootOnly(group, "Restore")
-            ),
-            ("Build All (Clean)",
-                null, //() => builder.Run(group, "Clean"),
-                () => builder.Run(group, "Build")
-            ),
-            ("Build All - No changes",
-                null,
-                () => builder.Run(group, "Build")
-            ),
-            ("Build Root - No Changes",
-                null,
-                () => builder.RunRootOnly(group, "Build")
-            ),
-            ("Build Root - 1 C# file changed in root",
-                () => System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow),
-                () => builder.RunRootOnly(group, "Build")
-            ),
-            ("Build All - 1 C# file changed in leaf",
-                () => File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
-public static class LibLeafClass {{
-    public static void Run() {{
-        // empty
-    }}
-    public static void Change{index}() {{ }}
-}}
-"),
-                () => builder.Run(group, "Build")
-            )
-            })
-    {
-
-        DumpHeader(kind);
-
-        for (int i = 0; i < runCount; i++)
-        {
-            prepare?.Invoke();
-
-            clock.Restart();
-
-            var results = build();
-            ResultsHelper.Verify(results);
-
-            Console.WriteLine($"[{i}] Time to build {results?.Count ?? 0} projects: {clock.Elapsed.TotalMilliseconds}ms");
-        }
-
-        index++;
-    }
-}
-
-// END
-// **************************************************************
-
-static void DumpHeader(string header)
-{
-    if (DumpHeaderState.DumpHeaderCount > 0)
-    {
-        Console.WriteLine();
-    }
-    DumpHeaderState.DumpHeaderCount++;
-    Console.WriteLine("============================================================================");
-    Console.WriteLine(header);
-    Console.WriteLine("****************************************************************************");
-}
-
-namespace XelaBuild
-{
-    static class DumpHeaderState
-    {
-        public static int DumpHeaderCount = 0;
-    }
-}
-

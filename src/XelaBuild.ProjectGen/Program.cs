@@ -1,4 +1,6 @@
-﻿using XelaBuild.ProjectGen;
+﻿using System;
+using System.IO;
+using XelaBuild.ProjectGen;
 
 // Generate projects for benchmarking
 if (args.Length != 1)
