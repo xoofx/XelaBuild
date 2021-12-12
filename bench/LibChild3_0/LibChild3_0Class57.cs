@@ -1,0 +1,6 @@
+namespace LibChild3_0;
+public static class LibChild3_0Class57 {
+    public static void Run() {
+        // empty
+    }
+}

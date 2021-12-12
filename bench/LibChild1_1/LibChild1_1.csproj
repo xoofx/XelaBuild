@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibChild2_8\LibChild2_8.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_9\LibChild2_9.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_10\LibChild2_10.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_11\LibChild2_11.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_12\LibChild2_12.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_13\LibChild2_13.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_14\LibChild2_14.csproj">
+    </ProjectReference>
+    <ProjectReference Include="..\LibChild2_15\LibChild2_15.csproj">
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

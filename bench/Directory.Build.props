@@ -1,0 +1,12 @@
+<Project>
+    <PropertyGroup>
+        <CommonOutputDirectory>$(MSBuildThisFileDirectory)build\</CommonOutputDirectory>
+        <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+        <OutputPath>$(CommonOutputDirectory)\bin\$(Configuration)\</OutputPath>
+        <OutDir>$(OutputPath)</OutDir>
+        <_MSBuildProjectFileHash>$(MSBuildProjectFile)-$([MSBuild]::StableStringHash($(MSBuildProjectFile)).ToString(`x8`))</_MSBuildProjectFileHash>
+        <BaseIntermediateOutputPath>$(CommonOutputDirectory)obj\$(MSBuildProjectName)-$([MSBuild]::StableStringHash($(_MSBuildProjectFileHash)).ToString(`x8`))\</BaseIntermediateOutputPath>
+        <UseCommonOutputDirectory>true</UseCommonOutputDirectory>
+        <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
+    </PropertyGroup>
+</Project>
