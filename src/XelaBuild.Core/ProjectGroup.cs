@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 /// <summary>
 /// A group of projects to build for a specific configuration.
@@ -99,13 +98,18 @@ public class ProjectGroup : IDisposable
         {
             if (!_projectStates.TryGetValue(projectPath, out projectState))
             {
-                projectState = new ProjectState();
+                projectState = new ProjectState(this);
                 _projectStates[projectPath] = projectState;
             }
         }
 
-        projectState.Project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
-        projectState.ProjectInstance = new ProjectInstance(projectState.Project.Xml, globalProperties, projectState.Project.ToolsVersion, projectCollection);
+        var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
+        projectState.ProjectInstance = new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
+
+        //projectState.ProjectInstance = new ProjectInstance(projectPath, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection);
+        //var instance = projectState.ProjectInstance;
+        //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
+
         return projectState.ProjectInstance;
     }
 

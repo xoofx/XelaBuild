@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 public class AssemblyGroup
 {

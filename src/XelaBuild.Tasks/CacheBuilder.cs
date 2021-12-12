@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security;
+using System.Reflection;
+using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
-namespace BuildServer.Tasks;
+namespace XelaBuild.Tasks;
 
 public class CacheBuilder : Task
 {
@@ -37,6 +38,8 @@ public class CacheBuilder : Task
             Log.LogError($"Unable to create cache folder at {OutputCacheFolder}. Reason: {ex.Message}");
             return false;
         }
+
+        var projectInstance = GetProjectInstance(this.BuildEngine);
 
         // For AssemblyReferences:
         //   Discard: ProjectReference => ReferenceSourceTarget=ProjectReference
@@ -142,5 +145,29 @@ public class CacheBuilder : Task
             }
             assemblyGroup.Items.Add(item);
         }
+    }
+
+    // Adapted from Simon Cropp at https://stackoverflow.com/a/6086148/1356325 
+    // Difference is that we try to match fields with type names instead of field names. It should be more "stable"
+    // (For example the fields were renamed at some point: https://stackoverflow.com/questions/8621787/from-within-an-msbuild-task-how-do-i-get-access-to-the-project-instance)
+    private static ProjectInstance GetProjectInstance(IBuildEngine buildEngine)
+    {
+        const BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.FlattenHierarchy | BindingFlags.Instance | BindingFlags.Public;
+
+        var buildEngineType = buildEngine.GetType();
+
+        var targetBuilderCallbackField = buildEngineType.GetFields(bindingFlags).FirstOrDefault(x => x.FieldType.FullName.Contains("ITargetBuilderCallback"));
+        if (targetBuilderCallbackField == null)
+        {
+            throw new Exception("Could not extract `ITargetBuilderCallback` field from " + buildEngineType.FullName);
+        }
+        var targetBuilderCallback = targetBuilderCallbackField.GetValue(buildEngine);
+        var targetCallbackType = targetBuilderCallback.GetType();
+        var projectInstanceField = targetCallbackType.GetFields(bindingFlags).FirstOrDefault(x => typeof(ProjectInstance).IsAssignableFrom(x.FieldType));
+        if (projectInstanceField == null)
+        {
+            throw new Exception("Could not extract projectInstance field from " + targetCallbackType.FullName);
+        }
+        return (ProjectInstance)projectInstanceField.GetValue(targetBuilderCallback);
     }
 }

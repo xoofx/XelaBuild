@@ -9,7 +9,7 @@ This is to measure the raw cost of msbuild when compiling a tree of deep project
 - Change 1 C# file affecting ref assemblies in the leaf project, build all
 - No changes, build all
 
-This repository is using a fork of msbuild [here](https://github.com/xoofx/msbuild/tree/benchbuild) to achieve higher build performance by enabling parallelized builds + caching 
+This repository is using a fork of msbuild [here](https://github.com/xoofx/msbuild/tree/XelaBuild) to achieve higher build performance by enabling parallelized builds + caching 
 while today msbuild can do caching only sequential and single threaded (see this [issue](https://github.com/dotnet/msbuild/issues/7112))
 
 > Disclaimer
@@ -59,11 +59,11 @@ So the solution in this experiment brings almost a **speedup factor of x3 to x10
 
 - First, you need to be very brave 😅 
 - The code assumes that you have installed [dotnet 6.0.100 SDK](https://dotnet.microsoft.com/download/dotnet/6.0)
-- Assuming that you checkout this project in a $root folder (so `$root\BenchBuild`)
-- You need to checkout this msbuild [benchbuild](https://github.com/xoofx/msbuild/tree/benchbuild) branch in `$root\dotnet\msbuild`
+- Assuming that you checkout this project in a $root folder (so `$root\XelaBuild`)
+- You need to checkout this msbuild [XelaBuild](https://github.com/xoofx/msbuild/tree/XelaBuild) branch in `$root\dotnet\msbuild`
 - Open the `$root\dotnet\msbuild\MSBuild.sln` solution and compile in `Release` (and/or `Debug`) the `MSBuild` project (other project might fail)
-- Open the `$root\BenchBuild\BenchBuild.sln` and build the solution (in the same config than msbuild)
-- Then you can run `BenchBuild` in the solution
+- Open the `$root\XelaBuild\XelaBuild.sln` and build the solution (in the same config than msbuild)
+- Then you can run `XelaBuild` in the solution
 - You should see an output similar to this:
 
 ```

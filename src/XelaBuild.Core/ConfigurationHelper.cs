@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 public static class ConfigurationHelper
 {

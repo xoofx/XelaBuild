@@ -1,20 +1,14 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
-using Microsoft.Build.Evaluation.Context;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Graph;
 using Microsoft.Build.Logging;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 /// <summary>
 /// Simple hosting of BuildManager from msbuild
@@ -25,7 +19,6 @@ public class Builder : IDisposable
 
     private readonly BuildManager _buildManager;
     private readonly List<ProjectGroup> _groups;
-    private BlockingCollection<Project> _projectsCreated;
 
     public Builder(ProjectsProvider provider)
     {
@@ -69,18 +62,6 @@ public class Builder : IDisposable
         }
 
         LoadCachedBuildResults();
-    }
-
-    public void Build()
-    {
-
-
-
-
-
-
-
-
     }
 
     public ProjectGroup LoadProjectGroup(IReadOnlyDictionary<string, string> properties)
@@ -209,7 +190,8 @@ public class Builder : IDisposable
             EnableNodeReuse = true,
             MaxNodeCount = MaxNodeCount,
             ResetCaches = false, // We don't want the cache to be reset
-            DiscardBuildResults = true, // But we don't want results to be stored
+            DiscardBuildResults = true, // But we don't want results to be stored,
+            ProjectLoadSettings = ProjectLoadSettings.RecordEvaluatedItemElements,
         };
 
         return parameters;

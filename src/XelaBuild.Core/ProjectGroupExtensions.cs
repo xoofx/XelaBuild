@@ -2,7 +2,7 @@
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 public static class ProjectGroupExtensions
 {

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Microsoft.Build.Construction;
 
-namespace BenchBuild;
+namespace XelaBuild;
 
 /// <summary>
 /// Generates a collection of C# projects with a root project, a leaf project and intermediate dependent projects.

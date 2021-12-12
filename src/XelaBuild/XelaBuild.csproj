@@ -8,19 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BuildServer.Tasks\BuildServer.Tasks.csproj" />
-    <ProjectReference Include="..\BuildServer\BuildServer.csproj" />
+    <ProjectReference Include="..\BuildServer.Tasks\XelaBuild.Tasks.csproj" />
+    <ProjectReference Include="..\BuildServer\XelaBuild.Core.csproj" />
   </ItemGroup>
 
-
-  <ItemGroup>
+  <!--<ItemGroup>
     <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.dll">
       <Private>False</Private>
     </Reference>
     <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.Framework.dll">
       <Private>False</Private>
     </Reference>
-  </ItemGroup>
+  </ItemGroup>-->
 
 
 </Project>

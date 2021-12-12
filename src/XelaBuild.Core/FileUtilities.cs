@@ -2,7 +2,7 @@
 using System.IO;
 using System.Security;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 internal class FileUtilities
 {

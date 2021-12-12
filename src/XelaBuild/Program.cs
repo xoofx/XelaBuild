@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;using System.Runtime.CompilerServices;
-using BenchBuild;
-using BuildServer;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
+using XelaBuild;
+using XelaBuild.Core;
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
 // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
@@ -80,7 +79,7 @@ static void RunBenchmark(string rootProject)
                 () => builder.RunRootOnly(group, "Restore")
             ),
             ("Build All (Clean)",
-                () => builder.Run(group, "Clean"),
+                null, //() => builder.Run(group, "Clean"),
                 () => builder.Run(group, "Build")
             ),
             ("Build All - No changes",
@@ -91,11 +90,11 @@ static void RunBenchmark(string rootProject)
                 null,
                 () => builder.RunRootOnly(group, "Build")
             ),
-            ("Build Root - 1 C# file changed in root", 
+            ("Build Root - 1 C# file changed in root",
                 () => System.IO.File.SetLastWriteTimeUtc(Path.Combine(rootFolder, "LibRoot", "LibRootClass.cs"), DateTime.UtcNow),
                 () => builder.RunRootOnly(group, "Build")
             ),
-            ("Build All - 1 C# file changed in leaf", 
+            ("Build All - 1 C# file changed in leaf",
                 () => File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), $@"namespace LibLeaf;
 public static class LibLeafClass {{
     public static void Run() {{
@@ -142,8 +141,11 @@ static void DumpHeader(string header)
     Console.WriteLine("****************************************************************************");
 }
 
-static class DumpHeaderState
+namespace XelaBuild
 {
-    public static int DumpHeaderCount = 0;
+    static class DumpHeaderState
+    {
+        public static int DumpHeaderCount = 0;
+    }
 }
 

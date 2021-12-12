@@ -198,3 +198,115 @@ Properties
 "RestoreSuccess"="True" ["True"]
 "RestoreTool"="NuGet" ["NuGet"]
 ```
+
+## ProjectGraph requirements
+
+### Properties required
+
+```xml
+      <InnerBuildProperty>TargetFramework</InnerBuildProperty>
+      <InnerBuildPropertyValues>TargetFrameworks</InnerBuildPropertyValues>
+```
+
+Depending on the previous value (either `TargetFramework` or `TargetFrameworks`):
+
+```xml
+      <TargetFramework>...</TargetFramework>
+      or
+      <TargetFrameworks>...</TargetFrameworks>
+```
+
+
+### Items
+
+ProjectReference
+  - FullPath
+  - GlobalPropertiesToRemove
+  - SetConfiguration
+  - SetPlatform
+  - SetTargetFramework
+  - Properties
+  - AdditionalProperties
+  - UndefineProperties
+
+ProjectReferenceTargets
+  - Targets
+  - OuterBuild
+
+## Misc MsBuild
+
+- [Document the import order of the common msbuild extension points](https://github.com/dotnet/msbuild/issues/2767#issuecomment-514342730)
+  
+## BuildInput cache
+
+One root cache (entry points)
+- `HashListFileReference` ProjectReferencesToCacheFiles
+
+ProjectCache
+- `FileReference` FileReference
+- `FileReference` BuildResultCacheFileReference
+- `HashListFileProjectReference` ProjectReferencesToCacheFiles
+- `List<GlobItem>` Globs
+- `OrderedHashListFileReference` InputImportFiles
+- `HashListFileReference` InputCompileAndContent
+- `HashListFileReference` InputAssemblyReferences
+
+ProjectConfiguration
+- `List<string>` Targets
+- `Dictionary<string, string>` Properties
+- `List<ProjectReferenceTargetsCache>` ProjectReferenceTargets
+
+ProjectReferenceCache
+  - CacheFileReference
+  - GlobalPropertiesToRemove
+  - SetConfiguration
+  - SetPlatform
+  - SetTargetFramework
+  - Properties
+  - AdditionalProperties
+  - UndefineProperties
+
+FileReference
+- `string` `FullPath`: full path to a file
+- `DateTime` `LastWriteTimeWhenRead`: timestamp when this file reference was read
+
+HashListFileReference
+- `HashOfFilePathsAndDateTime`
+- `List<FileReference>`
+
+OrderedHashListFileReference
+- `HashOfFilePathsAndDateTime`
+- `List<FileReference>`
+
+HashListFileProjectReference
+- `HashOfFilePathsAndDateTime`
+- `List<ProjectReferenceCache>`
+
+ProjectReferenceTargetsCache:
+- string ItemSpec
+- string Targets
+- bool OuterBuild
+
+GlobItem
+- string Include
+- string Exclude
+- string Remove
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

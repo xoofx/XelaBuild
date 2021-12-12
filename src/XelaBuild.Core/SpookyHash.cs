@@ -14,7 +14,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 /// <summary>Provides an implementation of SpookyHash, either incrementally or (by static methods) in a single
 /// operation.</summary>

@@ -1,12 +1,9 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
-using NuGet.Versioning;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 public class ProjectState
 {
@@ -18,7 +15,7 @@ public class ProjectState
 
     public readonly ProjectGroup Group;
 
-    public Project Project;
+    //public Project Project;
     
     public ProjectInstance ProjectInstance;
 
@@ -32,9 +29,10 @@ public class ProjectState
 
     public string GetBuildResultCacheFilePath()
     {
-        return Path.Combine(Project.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(Project.FullPath)}.BuildResult.cache");
+        return Path.Combine(ProjectInstance.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(ProjectInstance.FullPath)}.BuildResult.cache");
     }
 
+    /*
     public bool CheckNeedRestore()
     {
         HashAndDateTime hashAndDateTime = default;
@@ -192,6 +190,7 @@ public class ProjectState
         var packageHashAndDateTime = new HashAndDateTime(hash1, hash2, latestTime);
         hashAndDateTime = hashAndDateTime.Combine(packageHashAndDateTime);
     }
+    */
 }
 
 public class ProjectStateHash

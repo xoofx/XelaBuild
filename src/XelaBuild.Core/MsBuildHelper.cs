@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
+using Microsoft.Build.CommandLine;
 using Microsoft.Build.Locator;
 
-namespace BuildServer;
+namespace XelaBuild.Core;
 
 /// <summary>
 /// Helper class to deal with a local copy of msbuild but also to allow to run MsBuild as a node
@@ -54,30 +56,42 @@ public static class MsBuildHelper
 
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
 
-        // Custom registration with our custom msbuild
-#if DEBUG
-        var msbuildPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\..\..\dotnet\msbuild\artifacts\bin\MSBuild\Debug\net6.0\");
-#else
-        var msbuildPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\..\..\dotnet\msbuild\artifacts\bin\MSBuild\Release\net6.0\");
-#endif
-        if (!Directory.Exists(msbuildPath))
-        {
-            throw new InvalidOperationException($"folder {msbuildPath} does not exist");
-        }
+        var msbuildPath = Path.GetFullPath(Path.GetDirectoryName(typeof(MSBuildApp).Assembly.Location));
 
         // Copy any existing file from current SDK to the local msbuild
-        foreach (var file in Directory.EnumerateFiles(latest.MSBuildPath))
+        //foreach (var file in Directory.EnumerateFiles(latest.MSBuildPath))
+        //{
+        //    var destFile = Path.Combine(msbuildPath, Path.GetFileName(file));
+        //    if (!File.Exists(destFile))
+        //    {
+        //        File.Copy(file, destFile);
+        //    }
+        //}
+
+        // Try to load from 
+        AssemblyLoadContext.Default.Resolving += (context, name) =>
         {
-            var destFile = Path.Combine(msbuildPath, Path.GetFileName(file));
-            if (!File.Exists(destFile))
+            var check = Path.Combine(Path.GetDirectoryName(latest.MSBuildPath), name.Name);
+            var path = check + ".dll";
+            if (File.Exists(path))
             {
-                File.Copy(file, destFile);
+                return context.LoadFromAssemblyPath(path);
             }
-        }
+            else
+            {
+                path = check + ".exe";
+                if (File.Exists(path))
+                {
+                    return context.LoadFromAssemblyPath(path);
+                }
+            }
+
+            return null;
+        };
         
         foreach (KeyValuePair<string, string> keyValuePair in new Dictionary<string, string>()
                  {
-                     ["MSBUILD_EXE_PATH"] = msbuildPath + "MSBuild.dll",
+                     ["MSBUILD_EXE_PATH"] = Path.Combine(msbuildPath, "MSBuild.dll"),
                      ["MSBuildExtensionsPath"] = msbuildPath,
                      ["MSBuildSDKsPath"] = latest.MSBuildPath + "Sdks"
                  })
