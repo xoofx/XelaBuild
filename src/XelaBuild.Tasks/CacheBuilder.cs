@@ -6,6 +6,7 @@ using System.Reflection;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using XelaBuild.Core;
 
 namespace XelaBuild.Tasks;
 
@@ -80,7 +81,7 @@ public class CacheBuilder : Task
             }
             catch (Exception ex)
             {
-                Log.LogError($"Error writing cache file {filePath}");
+                Log.LogError($"Error writing cache file {filePath}. Reason: {ex}");
                 hasErrors = true;
             }
         }

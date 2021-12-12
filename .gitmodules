@@ -1,0 +1,3 @@
+[submodule "ext/msbuild"]
+	path = ext/msbuild
+	url = https://github.com/xoofx/msbuild.git

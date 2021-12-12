@@ -4,6 +4,7 @@
     <OutputType>Library</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,9 +13,9 @@
     <PackageReference Include="NuGet.Build.Tasks.Console" Version="6.0.0" />
     <PackageReference Include="NuGet.Frameworks" Version="6.0.0" />
     <PackageReference Include="NuGet.Versioning" Version="6.0.0" />
-    <ProjectReference Include="..\..\dotnet\msbuild\src\Build\Microsoft.Build.csproj" />
-    <ProjectReference Include="..\..\dotnet\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
-    <ProjectReference Include="..\..\dotnet\msbuild\src\MSBuild\MSBuild.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\Build\Microsoft.Build.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\MSBuild\MSBuild.csproj" />
 
     <Content Include="$(NuGetPackageRoot)nuget.build.tasks\6.0.0\runtimes\any\native\**" Visible="false">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

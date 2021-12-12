@@ -1089,8 +1089,6 @@ internal struct SpookyHash
     /// <param name="hash1">The first half of the 128-bit hash.</param>
     /// <param name="hash2">The second half of the 128-bit hash.</param>
     /// <remarks>This is not a CLS-compliant method, and is not accessible by some .NET languages.</remarks>
-    [CLSCompliant(false)]
-    [SecuritySafeCritical]
     public unsafe void Final(out ulong hash1, out ulong hash2)
     {
         if (_length < BufSize)

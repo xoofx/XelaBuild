@@ -3,23 +3,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <!--<ImplicitUsings>enable</ImplicitUsings>-->
-    <!--<Nullable>enable</Nullable>-->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>xelabuild</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BuildServer.Tasks\XelaBuild.Tasks.csproj" />
-    <ProjectReference Include="..\BuildServer\XelaBuild.Core.csproj" />
+    <ProjectReference Include="..\XelaBuild.Tasks\XelaBuild.Tasks.csproj" />
+    <ProjectReference Include="..\XelaBuild.Core\XelaBuild.Core.csproj" />
   </ItemGroup>
-
-  <!--<ItemGroup>
-    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="..\..\dotnet\msbuild\artifacts\bin\Microsoft.Build\$(Configuration)\net6.0\Microsoft.Build.Framework.dll">
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>-->
-
 
 </Project>

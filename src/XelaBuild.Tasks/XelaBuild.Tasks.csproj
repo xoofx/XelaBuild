@@ -3,25 +3,18 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <!--<ImplicitUsings>enable</ImplicitUsings>-->
-    <!--<Nullable>enable</Nullable>-->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\BuildServer\AssemblyGroup.cs" Link="AssemblyGroup.cs" />
-    <Compile Include="..\BuildServer\FileUtilities.cs" Link="FileUtilities.cs" />
-    <Compile Include="..\BuildServer\SpookyHash.cs" Link="SpookyHash.cs" />
+    <Compile Include="..\XelaBuild.Core\AssemblyGroup.cs" Link="AssemblyGroup.cs" />
+    <Compile Include="..\XelaBuild.Core\FileUtilities.cs" Link="FileUtilities.cs" />
+    <Compile Include="..\XelaBuild.Core\SpookyHash.cs" Link="SpookyHash.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\dotnet\msbuild\src\Build\Microsoft.Build.csproj" />
-    <ProjectReference Include="..\..\dotnet\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
-    <ProjectReference Include="..\..\dotnet\msbuild\src\Utilities\Microsoft.Build.Utilities.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\Build\Microsoft.Build.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\Utilities\Microsoft.Build.Utilities.csproj" />
   </ItemGroup>
-
-  <!--<ItemGroup>
-    <PackageReference Include="Microsoft.Build" Version="17.0.0" ExcludeAssets="Runtime" />
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" ExcludeAssets="Runtime" />
-  </ItemGroup>-->
 </Project>

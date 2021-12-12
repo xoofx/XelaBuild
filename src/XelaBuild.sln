@@ -7,24 +7,25 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild", "XelaBuild\Xela
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{35D367C1-4800-4E09-BA4E-0FDC5A4786AC}"
 	ProjectSection(SolutionItems) = preProject
+		..\license.txt = ..\license.txt
 		readme.md = readme.md
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.Core", "XelaBuild.Core\XelaBuild.Core.csproj", "{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.Tasks", "XelaBuild.Core.Tasks\XelaBuild.Tasks.csproj", "{89E2D51D-2D92-41B0-87CA-68FBC95DFCA7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.Tasks", "XelaBuild.Tasks\XelaBuild.Tasks.csproj", "{89E2D51D-2D92-41B0-87CA-68FBC95DFCA7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StringTools", "..\dotnet\msbuild\src\StringTools\StringTools.csproj", "{12CDDEAB-EBF6-4A06-9CCF-636AC7528621}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StringTools", "..\ext\msbuild\src\StringTools\StringTools.csproj", "{12CDDEAB-EBF6-4A06-9CCF-636AC7528621}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Framework", "..\dotnet\msbuild\src\Framework\Microsoft.Build.Framework.csproj", "{81132C54-D328-4F39-93C6-2B705B0AFD9F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Framework", "..\ext\msbuild\src\Framework\Microsoft.Build.Framework.csproj", "{81132C54-D328-4F39-93C6-2B705B0AFD9F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Tasks", "..\dotnet\msbuild\src\Tasks\Microsoft.Build.Tasks.csproj", "{FAB8CB86-C682-4150-9D55-B022932EB19A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Tasks", "..\ext\msbuild\src\Tasks\Microsoft.Build.Tasks.csproj", "{FAB8CB86-C682-4150-9D55-B022932EB19A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Utilities", "..\dotnet\msbuild\src\Utilities\Microsoft.Build.Utilities.csproj", "{D849A2CE-4AB3-4392-AE4A-6819400395AB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build.Utilities", "..\ext\msbuild\src\Utilities\Microsoft.Build.Utilities.csproj", "{D849A2CE-4AB3-4392-AE4A-6819400395AB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build", "..\dotnet\msbuild\src\Build\Microsoft.Build.csproj", "{0E42A7B2-D622-4962-A7DA-D70D62391FBA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build", "..\ext\msbuild\src\Build\Microsoft.Build.csproj", "{0E42A7B2-D622-4962-A7DA-D70D62391FBA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSBuild", "..\dotnet\msbuild\src\MSBuild\MSBuild.csproj", "{AA09DBB4-63B9-4E71-B0D3-790D9780879A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSBuild", "..\ext\msbuild\src\MSBuild\MSBuild.csproj", "{AA09DBB4-63B9-4E71-B0D3-790D9780879A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
