@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <XelaBuildCacheDir>$(UnityBuildDir)obj\caches\</XelaBuildCacheDir>
+  </PropertyGroup>
+
+  <UsingTask TaskName="XelaBuild.Tasks.CacheBuilder" AssemblyFile="$(MSBuildThisFileDirectory)XelaBuild.Tasks.dll"/>  
+  <Target Name="XelaCollectInputs" BeforeTargets="Compile" Returns="@(_CollectAssemblyReferences)">
+    <CacheBuilder AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)">
+      <Output TaskParameter="CacheFiles" ItemName="_CollectAssemblyReferences" />
+    </CacheBuilder>
+  </Target>
+</Project>

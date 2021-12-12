@@ -22,13 +22,8 @@ if (MsBuildHelper.IsCommandLineArgsForMsBuild(args))
 // Make sure that we are using our local copy of msbuild
 MsBuildHelper.RegisterCustomMsBuild();
 
-// ------------------------------------------------------------------------------------------------------------------------
-// generate testing projects if necessary
-var rootProject = Path.Combine(Environment.CurrentDirectory, "projects", "LibRoot", "LibRoot.csproj");
-DumpHeader("Generate Projects");
-rootProject = ProjectGenerator.Generate();
 
-RunBenchmark(rootProject);
+//RunBenchmark(rootProject);
 
 // This need to run in a separate method to allow msbuild to load the .NET assemblies before in MsBuildHelper.RegisterCustomMsBuild.
 static void RunBenchmark(string rootProject)

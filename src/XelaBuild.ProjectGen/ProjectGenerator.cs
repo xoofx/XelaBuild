@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
-namespace XelaBuild;
+﻿namespace XelaBuild.ProjectGen;
 
 /// <summary>
 /// Generates a collection of C# projects with a root project, a leaf project and intermediate dependent projects.
@@ -37,9 +32,9 @@ public class ProjectGenerator
         DumpProject(_rootProject, 0);
     }
 
-    public static string Generate(string projectsRootFolder = null, ProjectGeneratorOptions options = null)
+    public static string Generate(string projectsRootFolder, ProjectGeneratorOptions options = null)
     {
-        var rootFolder = projectsRootFolder ?? Path.Combine(Environment.CurrentDirectory, "projects");
+        var rootFolder = projectsRootFolder ?? throw new ArgumentNullException(nameof(projectsRootFolder));
 
         var versionFile = Path.Combine(rootFolder, "version.txt");
         bool generate = !File.Exists(versionFile);
@@ -203,28 +198,15 @@ public static class {className} {{
         // We are double hashing MSBuildProjectFile because of this issue https://github.com/dotnet/msbuild/issues/7131
         var content = @"<Project>
     <PropertyGroup>
-        <UnityBuildDir>$(MSBuildThisFileDirectory)build\</UnityBuildDir>
+        <CommonOutputDirectory>$(MSBuildThisFileDirectory)build\</CommonOutputDirectory>
         <Configuration Condition=""'$(Configuration)' == ''"">Debug</Configuration>
-        <OutputPath>$(UnityBuildDir)\bin\$(Configuration)\</OutputPath>
+        <OutputPath>$(CommonOutputDirectory)\bin\$(Configuration)\</OutputPath>
         <OutDir>$(OutputPath)</OutDir>
         <_MSBuildProjectFileHash>$(MSBuildProjectFile)-$([MSBuild]::StableStringHash($(MSBuildProjectFile)).ToString(`x8`))</_MSBuildProjectFileHash>
-        <BaseIntermediateOutputPath>$(UnityBuildDir)obj\$(MSBuildProjectName)-$([MSBuild]::StableStringHash($(_MSBuildProjectFileHash)).ToString(`x8`))\</BaseIntermediateOutputPath>
-        <UnityCacheDir>$(UnityBuildDir)obj\caches\</UnityCacheDir>
+        <BaseIntermediateOutputPath>$(CommonOutputDirectory)obj\$(MSBuildProjectName)-$([MSBuild]::StableStringHash($(_MSBuildProjectFileHash)).ToString(`x8`))\</BaseIntermediateOutputPath>
         <UseCommonOutputDirectory>true</UseCommonOutputDirectory>
         <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
     </PropertyGroup>
-
-  <ItemGroup Condition=""'$(IsGraphBuild)' == 'true'"">
-    <ProjectReferenceTargets Include=""CollectAssemblyReferences"" Targets=""CollectAssemblyReferences"" />
-  </ItemGroup>
-
-  <UsingTask TaskName=""BuildServer.Tasks.CacheBuilder"" AssemblyFile=""$(MSBuildThisFileDirectory)..\BuildServer.Tasks.dll"" Condition=""'$(UnityBuildServer)' == 'true'""/>
-
-  <Target Name=""CollectAssemblyReferences"" Condition=""'$(UnityBuildServer)' == 'true'"" DependsOnTargets=""Compile"" Returns=""@(_CollectAssemblyReferences)"">
-    <CacheBuilder AssemblyReferences=""@(ReferencePathWithRefAssemblies)"" Analyzers=""@(Analyzer)"" OutputCacheFolder=""$(UnityCacheDir)"">
-      <Output TaskParameter=""CacheFiles"" ItemName=""_CollectAssemblyReferences"" />
-    </CacheBuilder>
-  </Target>
 </Project>
 ";
     //<ItemGroup Condition=""'$(UnityBuildProcess)' == 'true'"">
@@ -237,7 +219,6 @@ public static class {className} {{
     private static string NormalizeEOL(string content)
     {
         return content.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
-
     }
 
     private void DumpProject(Project project, int level)
