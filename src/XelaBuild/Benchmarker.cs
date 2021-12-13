@@ -46,7 +46,7 @@ public class Benchmarker
 
         int index = 0;
         // ------------------------------------------------------------------------------------------------------------------------
-        foreach (var (kind, prepare, build) in new (string, Action, Func<IReadOnlyDictionary<ProjectGraphNode, BuildResult>>)[]
+        foreach (var (kind, prepare, build) in new (string, Action, Func<object>)[]
                 {
             ("Load All Projects",
                 null,
@@ -59,6 +59,8 @@ public class Benchmarker
                 null,
                 () =>
                 {
+                    //var result = builder.Run(group, "Restore");
+                    //var result = builder.Restore(group);
                     var result = builder.RunRootOnly(@group, "Restore");
 #if DEBUG
                     Console.WriteLine("Press key to attach to msbuild");
@@ -105,9 +107,9 @@ public static class LibLeafClass {{
                 clock.Restart();
 
                 var results = build();
-                ResultsHelper.Verify(results);
+                var projectCount = ResultsHelper.Verify(builder, results);
 
-                Console.WriteLine($"[{i}] Time to build {results?.Count ?? 0} projects: {clock.Elapsed.TotalMilliseconds}ms");
+                Console.WriteLine($"[{i}] Time to build {projectCount} projects: {clock.Elapsed.TotalMilliseconds}ms");
             }
 
             index++;
