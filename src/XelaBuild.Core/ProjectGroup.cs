@@ -26,7 +26,8 @@ public class ProjectGroup : IDisposable
         var properties = new Dictionary<string, string>(globalProperties)
         {
             ["UnityBuildServer"] = "true",
-            ["IsGraphBuild"] = "true" // Make this upfront to include it in the cache file names
+            ["IsGraphBuild"] = "true", // Make this upfront to include it in the cache file names
+            //["RestoreRecursive"] = "false",
         };
 
         _projectStates = new Dictionary<string, ProjectState>();

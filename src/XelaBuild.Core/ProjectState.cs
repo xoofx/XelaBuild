@@ -32,6 +32,11 @@ public class ProjectState
         return Path.Combine(ProjectInstance.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(ProjectInstance.FullPath)}.BuildResult.cache");
     }
 
+    public string GetRestoreResultCacheFilePath()
+    {
+        return Path.Combine(ProjectInstance.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(ProjectInstance.FullPath)}.RestoreResult.cache");
+    }
+
     /*
     public bool CheckNeedRestore()
     {

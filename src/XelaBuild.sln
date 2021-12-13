@@ -12,6 +12,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.Core", "XelaBuild.Core\XelaBuild.Core.csproj", "{C3A53FE6-FCCE-421D-B055-516BEEDD38CB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23} = {8DE2407E-9587-4F62-83E1-F75F003BDD23}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.Tasks", "XelaBuild.Tasks\XelaBuild.Tasks.csproj", "{89E2D51D-2D92-41B0-87CA-68FBC95DFCA7}"
 EndProject
@@ -27,7 +30,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Build", "..\ext\m
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSBuild", "..\ext\msbuild\src\MSBuild\MSBuild.csproj", "{AA09DBB4-63B9-4E71-B0D3-790D9780879A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XelaBuild.ProjectGen", "XelaBuild.ProjectGen\XelaBuild.ProjectGen.csproj", "{4877A291-655F-4947-BC0B-86BA17DCF89A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.ProjectGen", "XelaBuild.ProjectGen\XelaBuild.ProjectGen.csproj", "{4877A291-655F-4947-BC0B-86BA17DCF89A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XelaBuild.NuGetRestore", "XelaBuild.NuGetRestore\XelaBuild.NuGetRestore.csproj", "{8DE2407E-9587-4F62-83E1-F75F003BDD23}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -243,6 +248,26 @@ Global
 		{4877A291-655F-4947-BC0B-86BA17DCF89A}.Release-MONO|Any CPU.Build.0 = Release|Any CPU
 		{4877A291-655F-4947-BC0B-86BA17DCF89A}.Release-MONO|x64.ActiveCfg = Release|Any CPU
 		{4877A291-655F-4947-BC0B-86BA17DCF89A}.Release-MONO|x64.Build.0 = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug|x64.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug-MONO|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug-MONO|Any CPU.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug-MONO|x64.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Debug-MONO|x64.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.MachineIndependent|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.MachineIndependent|Any CPU.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.MachineIndependent|x64.ActiveCfg = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.MachineIndependent|x64.Build.0 = Debug|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release|x64.ActiveCfg = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release|x64.Build.0 = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release-MONO|Any CPU.ActiveCfg = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release-MONO|Any CPU.Build.0 = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release-MONO|x64.ActiveCfg = Release|Any CPU
+		{8DE2407E-9587-4F62-83E1-F75F003BDD23}.Release-MONO|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

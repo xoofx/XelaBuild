@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
@@ -148,6 +149,7 @@ public class Builder : IDisposable
         var parameters = CreateParameters(group.ProjectCollection, loggerVerbosity);
 
         GraphBuildCacheFilePathDelegate projectCacheFilePathDelegate = null;
+        GraphBuildInputsDelegate projectGraphBuildInputs = null;
 
         var copyTargetNames = new List<string>(targetNames);
 
@@ -157,15 +159,61 @@ public class Builder : IDisposable
             projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetBuildResultCacheFilePath();
             parameters.IsolateProjects = true;
         }
-
+        //else if (copyTargetNames.Contains("Restore"))
+        //{
+        //    copyTargetNames.Clear();
+        //    copyTargetNames.Add("XelaRestore");
+        //    projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetRestoreResultCacheFilePath();
+        //    projectGraphBuildInputs = node => node.ProjectReferences.SelectMany(GetTransitiveProjectReferences);
+        //    parameters.IsolateProjects = true;
+        //}
+        
         _buildManager.BeginBuild(parameters);
         try
         {
-            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate);
+            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate, projectGraphBuildInputs);
             var submission = _buildManager.PendBuildRequest(graphBuildRequest);
             var result = submission.Execute();
             return result.ResultsByNode;
         } 
+        finally
+        {
+            _buildManager.EndBuild();
+        }
+    }
+
+    private static IEnumerable<ProjectGraphNode> GetTransitiveProjectReferences(ProjectGraphNode node)
+    {
+        yield return node;
+
+        foreach (var subNode in node.ProjectReferences)
+        {
+            foreach (var subNode1 in GetTransitiveProjectReferences(subNode))
+            {
+                yield return subNode1;
+            }
+        }
+    }
+    
+    public BuildResult Restore(ProjectGroup group)
+    {
+        var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
+        {
+            ["Platform"] = "Any CPU",
+            ["NuGetConsoleProcessFileName"] = Path.Combine(Path.GetDirectoryName(typeof(Builder).Assembly.Location), "XelaBuild.NuGetRestore.exe"),
+            ["RestoreUseStaticGraphEvaluation"] = "true"
+        };
+        var collection = new ProjectCollection(properties);
+        var parameters = CreateParameters(collection, LoggerVerbosity.Quiet);
+
+        _buildManager.BeginBuild(parameters);
+        try
+        {
+            var graphBuildRequest = new BuildRequestData(Provider.GetProjectPaths().First(), properties, null, new[] {"Restore"}, null);
+            var submission = _buildManager.PendBuildRequest(graphBuildRequest);
+            var result = submission.Execute();
+            return result;
+        }
         finally
         {
             _buildManager.EndBuild();
@@ -179,12 +227,13 @@ public class Builder : IDisposable
         if (verbosity.HasValue)
         {
             loggers.Add(new ConsoleLogger(verbosity.Value));
-            // new BinaryLogger() { Parameters = "msbuild.binlog"}
         }
         else
         {
             loggers.Add(new ConsoleLogger(LoggerVerbosity.Quiet));
         }
+
+        loggers.Add(new BinaryLogger() { Parameters = "msbuild.binlog", Verbosity = LoggerVerbosity.Diagnostic });
 
         var parameters = new BuildParameters(projectCollection)
         {

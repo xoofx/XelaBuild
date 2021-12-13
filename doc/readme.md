@@ -292,7 +292,9 @@ GlobItem
 - string Exclude
 - string Remove
 
+## NuGet Restore
 
+NuGet is [supporting static-graph](https://github.com/NuGet/Home/issues/8791) but it doesn't support isolated restore with caching, which is where the real perf would come.
 
 
 

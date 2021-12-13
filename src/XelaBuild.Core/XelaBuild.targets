@@ -1,6 +1,13 @@
 <Project>
   <UsingTask TaskName="XelaBuild.Tasks.CacheBuilder" AssemblyFile="$(MSBuildThisFileDirectory)XelaBuild.Tasks.dll"/>
 
+  <ItemGroup Condition="'$(IsGraphBuild)' == 'true'">
+    <ProjectReferenceTargets Include="XelaRestore" Targets="Restore;_IsProjectRestoreSupported;_GenerateRestoreProjectPathWalk;_GenerateRestoreGraphProjectEntry;_GenerateProjectRestoreGraph;_GetRestoreSettingsPerFramework;_GetRestorePackagesPathOverride;_GetRestoreRepositoryPathOverride;_GetRestoreSourcesOverride;_GetRestoreFallbackFoldersOverride" />
+  </ItemGroup>
+
+  <Target Name="XelaRestore" DependsOnTargets="Restore">
+  </Target>
+
   <Target Name="XelaCollectInputs" BeforeTargets="Compile">
     <!--<Message Importance="High" Text="Log from XelaCollectInputs"/>-->
     <CacheBuilder AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)">
