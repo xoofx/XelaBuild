@@ -297,6 +297,32 @@ GlobItem
 NuGet is [supporting static-graph](https://github.com/NuGet/Home/issues/8791) but it doesn't support isolated restore with caching, which is where the real perf would come.
 
 
+Both these targets are called on each project:
+
+- `_GetAllRestoreProjectPathItems` takes 404ms and calls into:
+  - `_IsProjectRestoreSupported` is 
+  - `_GenerateRestoreProjectPathWalk` is 4ms/project costly . 100 projects => 400ms
+- `_GenerateRestoreGraph` takes 304ms for 100 projects and calls into
+  - `_GenerateRestoreGraphProjectEntry` is 2.2ms/project costly. 100 projects => 220ms
+  - `_GenerateProjectRestoreGraph` is 0.8ms/project costly. 100 projects => 80ms
+- `_GetRestoreSettingsPerFramework`
+- `_GetRestorePackagesPathOverride`
+- `_GetRestoreRepositoryPathOverride`
+- `_GetRestoreSourcesOverride`
+- `_GetRestoreFallbackFoldersOverride`
+
+
+All: 
+_IsProjectRestoreSupported;_GenerateRestoreProjectPathWalk;_GenerateRestoreGraphProjectEntry;_GenerateProjectRestoreGraph;_GetRestoreSettingsPerFramework;_GetRestorePackagesPathOverride;_GetRestoreRepositoryPathOverride;_GetRestoreSourcesOverride;_GetRestoreFallbackFoldersOverride
+
+
+
+
+
+if multiple TargetFrameworks:
+- `_GenerateProjectRestoreGraphPerFramework` 
+- `_GenerateRestoreProjectPathItemsPerFramework`
+
 
 
 
