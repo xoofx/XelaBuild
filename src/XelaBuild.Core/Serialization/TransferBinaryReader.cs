@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace XelaBuild.Core.Serialization;
@@ -21,18 +22,27 @@ public class TransferBinaryReader : BinaryReader
     public TransferBinaryReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
     {
     }
-    public TData ReadStruct<TTransferable, TData>(TTransferable transferable) where TTransferable : ITransferable<TData> where TData : struct
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public TData ReadStruct<TData>(TData data) where TData : struct, ITransferable<TData>
     {
-        return transferable.Read(this);
+        return data.Read(this);
     }
 
-    public TData ReadObject<TTransferable, TData>(TTransferable transferable) where TTransferable : ITransferable<TData> where TData : class
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public TData ReadObject<TData>(TData data) where TData : class, ITransferable<TData>
     {
 
-        return transferable.Read(this);
+        return data.Read(this);
     }
 
-    public TData ReadNullableObject<TTransferable, TData>(TTransferable transferable) where TTransferable : ITransferable<TData> where TData : class
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public TData? ReadNullableStruct<TData>(TData data) where TData : struct, ITransferable<TData>
+    {
+        return ReadNullability() ? null : data.Read(this);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public TData ReadNullableObject<TData>(TData transferable) where TData : class, ITransferable<TData>
     {
         return ReadNullability() ? null: transferable.Read(this);
     }
@@ -61,22 +71,26 @@ public class TransferBinaryReader : BinaryReader
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DateTime ReadDateTime()
     {
         return new DateTime(ReadInt64(), DateTimeKind.Utc);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ReadNullability()
     {
         var status = ReadByte();
         return status == 0;
     }
-    
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool? ReadNullableBoolean()
     {
         return ReadNullability() ? null : ReadBoolean();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string ReadNullableString()
     {
         return ReadNullability() ? null : ReadString();

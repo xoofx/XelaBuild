@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Buffers;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using XelaBuild.Core.Helpers;
@@ -11,7 +9,7 @@ namespace XelaBuild.Core.Caching;
 
 public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
 {
-    private const uint Magic = 0x43494243;
+    private const uint Magic = 0x43494243; // "CBIC"
     private const uint Version = 0x0001_0000;
 
     public CachedAssemblyGroup()
@@ -47,6 +45,11 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
     {
         var group = new CachedAssemblyGroup();
         using var reader = new TransferBinaryReader(stream, Encoding.Default, true);
+
+        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
+        var version = reader.ReadUInt32();
+        if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
+
         group.Read(reader);
         return group;
     }
@@ -125,15 +128,14 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
     public void WriteToStream(Stream stream)
     {
         using var writer = new TransferBinaryWriter(stream, Encoding.Default, true);
+        writer.Write((uint)Magic);
+        writer.Write((uint)Version);
         this.Write(writer);
         writer.Flush();
     }
 
     public CachedAssemblyGroup Read(TransferBinaryReader reader)
     {
-        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
-        var version = reader.ReadUInt32();
-        if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
         Hash1 = reader.ReadUInt64();
         Hash2 = reader.ReadUInt64();
         MaxModifiedTime = reader.ReadDateTime();
@@ -143,8 +145,6 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
 
     public void Write(TransferBinaryWriter writer)
     {
-        writer.Write((uint)Magic);
-        writer.Write((uint)Version);
         writer.Write(Hash1);
         writer.Write(Hash2);
         writer.Write(MaxModifiedTime);
