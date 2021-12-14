@@ -1,4 +1,8 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LibChild2_10", "LibChild2_10\LibChild2_10.csproj", "{14B07510-671F-418D-A021-9FA8B4FCF717}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LibChild1_0", "LibChild1_0\LibChild1_0.csproj", "{565267B7-1DD9-4D15-8E2E-CB6187C1F9DD}"
