@@ -4,17 +4,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using XelaBuild.Core.Helpers;
 
-namespace XelaBuild.Core;
+namespace XelaBuild.Core.Caching;
 
-public class AssemblyGroup
+public class CachedAssemblyGroup
 {
     private const uint Magic = 0x43494243;
     private const uint Version = 0x0001_0000;
 
-    public AssemblyGroup()
+    public CachedAssemblyGroup()
     {
-        Items = new List<FilePathAndTime>();
+        Items = new List<CachedFileReference>();
         MaxModifiedTime = DateTime.MinValue;
     }
 
@@ -24,7 +25,7 @@ public class AssemblyGroup
 
     public DateTime MaxModifiedTime;
 
-    public List<FilePathAndTime> Items { get; }
+    public List<CachedFileReference> Items { get; }
 
     private static DateTime ReadDateTime(BinaryReader reader)
     {
@@ -37,7 +38,7 @@ public class AssemblyGroup
         writer.Write(time.Ticks);
     }
 
-    public static AssemblyGroup ReadFromFile(string filePath)
+    public static CachedAssemblyGroup ReadFromFile(string filePath)
     {
         using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         return ReadFromStream(stream);
@@ -52,13 +53,13 @@ public class AssemblyGroup
     // int: number of entries
     // entry+: long time (tick_utc), int length (number of of UTF 8 bytes), length bytes
 
-    public static AssemblyGroup ReadFromStream(Stream stream)
+    public static CachedAssemblyGroup ReadFromStream(Stream stream)
     {
         using var reader = new BinaryReader(stream, Encoding.Default, true);
         if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
         var version = reader.ReadUInt32();
         if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
-        var group = new AssemblyGroup();
+        var group = new CachedAssemblyGroup();
         group.Hash1 = reader.ReadUInt64();
         group.Hash2 = reader.ReadUInt64();
         group.MaxModifiedTime = ReadDateTime(reader);
@@ -74,7 +75,7 @@ public class AssemblyGroup
                 var read = reader.Read(buffer, 0, length);
                 Debug.Assert(length == read);
                 var filePath = Encoding.UTF8.GetString(buffer, 0, read);
-                group.Items.Add(new FilePathAndTime(filePath, time));
+                group.Items.Add(new CachedFileReference(filePath, time));
             }
             finally
             {
@@ -84,7 +85,7 @@ public class AssemblyGroup
         return group;
     }
 
-    public string GetFilePath(AssemblyGroupKey key, string folder)
+    public string GetFilePath(CachedAssemblyGroupKey key, string folder)
     {
         // Hash on disk
         // fwk-$(FrameworkReferenceName)-$(FrameworkReferenceVersion)-(hash).cache
@@ -100,13 +101,13 @@ public class AssemblyGroup
 
         switch (key.GroupKind)
         {
-            case AssemblyGroupKind.Framework:
+            case CachedAssemblyGroupKind.Framework:
                 builder.Append("fwk-");
                 break;
-            case AssemblyGroupKind.Package:
+            case CachedAssemblyGroupKind.Package:
                 builder.Append("pkg-");
                 break;
-            case AssemblyGroupKind.Dll:
+            case CachedAssemblyGroupKind.Dll:
                 builder.Append("dll-");
                 break;
             default:
@@ -164,7 +165,7 @@ public class AssemblyGroup
         writer.Write((ulong)Hash2);
         writer.Write((long)MaxModifiedTime.Ticks);
         writer.Write((int)Items.Count);
-        foreach (FilePathAndTime item in Items)
+        foreach (CachedFileReference item in Items)
         {
             writer.Write((long)item.LastWriteTimeUtc.Ticks);
             var length = Encoding.UTF8.GetByteCount(item.FullPath);
@@ -185,57 +186,11 @@ public class AssemblyGroup
     }
 }
 
-public record struct AssemblyGroupKey(AssemblyGroupKind GroupKind, string Name, string Version);
+public record struct CachedAssemblyGroupKey(CachedAssemblyGroupKind GroupKind, string Name, string Version);
 
-public enum AssemblyGroupKind
+public enum CachedAssemblyGroupKind
 {
     Framework,
     Package,
     Dll
-}
-
-public record struct FilePathAndTime(string FullPath, DateTime LastWriteTimeUtc);
-
-internal class HexHelper
-{
-    private static ReadOnlySpan<byte> HexChars => new(new byte[16]
-    {
-        (byte)'0',
-        (byte)'1',
-        (byte)'2',
-        (byte)'3',
-        (byte)'4',
-        (byte)'5',
-        (byte)'6',
-        (byte)'7',
-        (byte)'8',
-        (byte)'9',
-        (byte)'a',
-        (byte)'b',
-        (byte)'c',
-        (byte)'d',
-        (byte)'e',
-        (byte)'f',
-    });
-
-    public static unsafe string ToString(ulong uhash1, ulong uhash2)
-    {
-        var hash = stackalloc char[32];
-        int index = 0;
-        for (int i = 0; i < 8; i++)
-        {
-            hash[index++] = (char)HexChars[(int)(uhash1 & 0xF)];
-            uhash1 >>= 4;
-            hash[index++] = (char)HexChars[(int)(uhash1 & 0xF)];
-            uhash1 >>= 4;
-        }
-        for (int i = 0; i < 8; i++)
-        {
-            hash[index++] = (char)HexChars[(int)(uhash2 & 0xF)];
-            uhash2 >>= 4;
-            hash[index++] = (char)HexChars[(int)(uhash2 & 0xF)];
-            uhash2 >>= 4;
-        }
-        return new string(hash, 0, 32);
-    }
 }

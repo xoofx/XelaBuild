@@ -7,14 +7,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\XelaBuild.Core\AssemblyGroup.cs" Link="AssemblyGroup.cs" />
-    <Compile Include="..\XelaBuild.Core\Helpers\FileUtilities.cs" Link="FileUtilities.cs" />
-    <Compile Include="..\XelaBuild.Core\Helpers\SpookyHash.cs" Link="SpookyHash.cs" />
+    <Compile Include="..\XelaBuild.Core\Helpers\FileUtilities.cs" Link="Helpers\FileUtilities.cs" />
+    <Compile Include="..\XelaBuild.Core\Helpers\HexHelper.cs" Link="Helpers\HexHelper.cs" />
+    <Compile Include="..\XelaBuild.Core\Helpers\SpookyHash.cs" Link="Helpers\SpookyHash.cs" />
+    <Compile Include="..\XelaBuild.Core\Caching\CachedFileReference.cs" Link="Caching\CachedFileReference.cs" />
+    <Compile Include="..\XelaBuild.Core\Caching\CachedAssemblyGroup.cs" Link="Caching\CachedAssemblyGroup.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\ext\msbuild\src\Build\Microsoft.Build.csproj" />
     <ProjectReference Include="..\..\ext\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
     <ProjectReference Include="..\..\ext\msbuild\src\Utilities\Microsoft.Build.Utilities.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Caching\" />
+    <Folder Include="Helpers\" />
   </ItemGroup>
 </Project>

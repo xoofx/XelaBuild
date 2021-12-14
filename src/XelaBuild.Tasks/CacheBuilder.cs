@@ -7,6 +7,7 @@ using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using XelaBuild.Core;
+using XelaBuild.Core.Caching;
 using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Tasks;
@@ -53,7 +54,7 @@ public class CacheBuilder : Task
         //   FrameworkReference => FrameworkReferenceName
         //   PackageReference => NuGetPackageId
         //   else AssemblyReference
-        var map = new Dictionary<AssemblyGroupKey, AssemblyGroup>();
+        var map = new Dictionary<CachedAssemblyGroupKey, CachedAssemblyGroup>();
         try
         {
             Process(map, AssemblyReferences);
@@ -92,7 +93,7 @@ public class CacheBuilder : Task
         return !hasErrors;
     }
 
-    private static void Process(Dictionary<AssemblyGroupKey, AssemblyGroup> map, ITaskItem[] items)
+    private static void Process(Dictionary<CachedAssemblyGroupKey, CachedAssemblyGroup> map, ITaskItem[] items)
     {
         foreach (var assemblyRef in items)
         {
@@ -106,12 +107,12 @@ public class CacheBuilder : Task
             SpookyHash.Hash128(itemspec, out var hash1, out var hash2);
             //var hash = HexHelper.ToString(hash1, hash2);
 
-            AssemblyGroupKind kind;
+            CachedAssemblyGroupKind kind;
             var name = assemblyRef.GetMetadata("FrameworkReferenceName");
             string version = null;
             if (!string.IsNullOrEmpty(name))
             {
-                kind = AssemblyGroupKind.Framework;
+                kind = CachedAssemblyGroupKind.Framework;
                 version = assemblyRef.GetMetadata("FrameworkReferenceVersion");
             }
             else
@@ -119,28 +120,28 @@ public class CacheBuilder : Task
                 name = assemblyRef.GetMetadata("NuGetPackageId");
                 if (!string.IsNullOrEmpty(name))
                 {
-                    kind = AssemblyGroupKind.Package;
+                    kind = CachedAssemblyGroupKind.Package;
                     version = assemblyRef.GetMetadata("NuGetPackageVersion");
                 }
                 else
                 {
-                    kind = AssemblyGroupKind.Dll;
+                    kind = CachedAssemblyGroupKind.Dll;
                     name = Path.GetFileName(itemspec);
                 }
             }
 
-            var key = new AssemblyGroupKey(kind, name, version);
+            var key = new CachedAssemblyGroupKey(kind, name, version);
 
             if (!map.TryGetValue(key, out var assemblyGroup))
             {
-                assemblyGroup = new AssemblyGroup();
+                assemblyGroup = new CachedAssemblyGroup();
                 map.Add(key, assemblyGroup);
             }
 
             // Update the hash of the group, use XOR to avoid having to sort items
             assemblyGroup.Hash1 ^= hash1;
             assemblyGroup.Hash2 ^= hash2;
-            var item = new FilePathAndTime(itemspec, FileUtilities.GetLastModifiedTimeUtc(itemspec));
+            var item = new CachedFileReference(itemspec, FileUtilities.GetLastModifiedTimeUtc(itemspec));
             if (item.LastWriteTimeUtc > assemblyGroup.MaxModifiedTime)
             {
                 assemblyGroup.MaxModifiedTime = item.LastWriteTimeUtc;
