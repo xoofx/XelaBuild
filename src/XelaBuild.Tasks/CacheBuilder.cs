@@ -42,7 +42,7 @@ public class CacheBuilder : Task
             return false;
         }
 
-        var projectInstance = GetProjectInstance(this.BuildEngine);
+        //var projectInstance = GetProjectInstance(this.BuildEngine);
 
         // For AssemblyReferences:
         //   Discard: ProjectReference => ReferenceSourceTarget=ProjectReference
@@ -142,9 +142,9 @@ public class CacheBuilder : Task
             assemblyGroup.Hash1 ^= hash1;
             assemblyGroup.Hash2 ^= hash2;
             var item = new CachedFileReference(itemspec, FileUtilities.GetLastModifiedTimeUtc(itemspec));
-            if (item.LastWriteTimeUtc > assemblyGroup.MaxModifiedTime)
+            if (item.LastWriteTime > assemblyGroup.MaxModifiedTime)
             {
-                assemblyGroup.MaxModifiedTime = item.LastWriteTimeUtc;
+                assemblyGroup.MaxModifiedTime = item.LastWriteTime;
             }
             assemblyGroup.Items.Add(item);
         }

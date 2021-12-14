@@ -12,6 +12,7 @@
     <Compile Include="..\XelaBuild.Core\Helpers\SpookyHash.cs" Link="Helpers\SpookyHash.cs" />
     <Compile Include="..\XelaBuild.Core\Caching\CachedFileReference.cs" Link="Caching\CachedFileReference.cs" />
     <Compile Include="..\XelaBuild.Core\Caching\CachedAssemblyGroup.cs" Link="Caching\CachedAssemblyGroup.cs" />
+    <Compile Include="..\XelaBuild.Core\Serialization\*.cs" Link="Serialization\%(Filename)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,5 +24,6 @@
   <ItemGroup>
     <Folder Include="Caching\" />
     <Folder Include="Helpers\" />
+    <Folder Include="Serialization\" />
   </ItemGroup>
 </Project>
