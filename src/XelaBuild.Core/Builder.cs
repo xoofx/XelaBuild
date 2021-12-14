@@ -149,7 +149,7 @@ public class Builder : IDisposable
         var parameters = CreateParameters(group.ProjectCollection, loggerVerbosity);
 
         GraphBuildCacheFilePathDelegate projectCacheFilePathDelegate = null;
-        GraphBuildInputsDelegate projectGraphBuildInputs = null;
+        //GraphBuildInputsDelegate projectGraphBuildInputs = null;
 
         var copyTargetNames = new List<string>(targetNames);
 
@@ -171,7 +171,7 @@ public class Builder : IDisposable
         _buildManager.BeginBuild(parameters);
         try
         {
-            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate, projectGraphBuildInputs);
+            var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate);
             var submission = _buildManager.PendBuildRequest(graphBuildRequest);
             var result = submission.Execute();
             return result.ResultsByNode;
