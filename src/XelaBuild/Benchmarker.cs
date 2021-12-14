@@ -47,7 +47,7 @@ public class Benchmarker
         int index = 0;
         // ------------------------------------------------------------------------------------------------------------------------
         foreach (var (kind, prepare, build) in new (string, Action, Func<object>)[]
-                {
+        {
             ("Load All Projects",
                 null,
                 () =>
@@ -93,9 +93,21 @@ public static class LibLeafClass {{
     public static void Change{index}() {{ }}
 }}
 "),
-                () => builder.Run(group, "Build")
+                () =>
+                {
+                    var result = builder.Run(@group, "Build");
+                    // Restore file
+                    File.WriteAllText(Path.Combine(rootFolder, "LibLeaf", "LibLeafClass.cs"), @"namespace LibLeaf;
+public static class LibLeafClass {
+    public static void Run() {
+        // empty
+    }
+}
+");
+                    return result;
+                }
             )
-                })
+        })
         {
 
             DumpHeader(kind);
