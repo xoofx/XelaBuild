@@ -5,10 +5,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using XelaBuild.Core.Helpers;
+using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public class CachedAssemblyGroup
+public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
 {
     private const uint Magic = 0x43494243;
     private const uint Version = 0x0001_0000;
@@ -27,17 +28,6 @@ public class CachedAssemblyGroup
 
     public List<CachedFileReference> Items { get; }
 
-    private static DateTime ReadDateTime(BinaryReader reader)
-    {
-        var ticks = reader.ReadInt64();
-        return new DateTime(ticks, DateTimeKind.Utc);
-    }
-
-    private static void WriteDateTime(BinaryWriter writer, DateTime time)
-    {
-        writer.Write(time.Ticks);
-    }
-
     public static CachedAssemblyGroup ReadFromFile(string filePath)
     {
         using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -55,33 +45,9 @@ public class CachedAssemblyGroup
 
     public static CachedAssemblyGroup ReadFromStream(Stream stream)
     {
-        using var reader = new BinaryReader(stream, Encoding.Default, true);
-        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
-        var version = reader.ReadUInt32();
-        if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
         var group = new CachedAssemblyGroup();
-        group.Hash1 = reader.ReadUInt64();
-        group.Hash2 = reader.ReadUInt64();
-        group.MaxModifiedTime = ReadDateTime(reader);
-        var count = reader.ReadInt32();
-        group.Items.Capacity = count;
-        for(int i = 0; i < count; i++)
-        {
-            var time = ReadDateTime(reader);
-            var length = reader.ReadInt32();
-            var buffer = ArrayPool<byte>.Shared.Rent(length);
-            try
-            {
-                var read = reader.Read(buffer, 0, length);
-                Debug.Assert(length == read);
-                var filePath = Encoding.UTF8.GetString(buffer, 0, read);
-                group.Items.Add(new CachedFileReference(filePath, time));
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
-        }
+        using var reader = new TransferBinaryReader(stream, Encoding.Default, true);
+        group.Read(reader);
         return group;
     }
 
@@ -158,31 +124,31 @@ public class CachedAssemblyGroup
 
     public void WriteToStream(Stream stream)
     {
-        using var writer = new BinaryWriter(stream, Encoding.Default, true);
+        using var writer = new TransferBinaryWriter(stream, Encoding.Default, true);
+        this.Write(writer);
+        writer.Flush();
+    }
+
+    public CachedAssemblyGroup Read(TransferBinaryReader reader)
+    {
+        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
+        var version = reader.ReadUInt32();
+        if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
+        Hash1 = reader.ReadUInt64();
+        Hash2 = reader.ReadUInt64();
+        MaxModifiedTime = reader.ReadDateTime();
+        reader.ReadStructsToList(Items);
+        return this;
+    }
+
+    public void Write(TransferBinaryWriter writer)
+    {
         writer.Write((uint)Magic);
         writer.Write((uint)Version);
-        writer.Write((ulong)Hash1);
-        writer.Write((ulong)Hash2);
-        writer.Write((long)MaxModifiedTime.Ticks);
-        writer.Write((int)Items.Count);
-        foreach (CachedFileReference item in Items)
-        {
-            writer.Write((long)item.LastWriteTimeUtc.Ticks);
-            var length = Encoding.UTF8.GetByteCount(item.FullPath);
-            var buffer = ArrayPool<byte>.Shared.Rent(length);
-            try
-            {
-                var written = Encoding.UTF8.GetBytes(item.FullPath, 0, item.FullPath.Length, buffer, 0);
-                Debug.Assert(length == written);
-                writer.Write((int) written);
-                writer.Write(buffer, 0, written);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
-        }
-        writer.Flush();
+        writer.Write(Hash1);
+        writer.Write(Hash2);
+        writer.Write(MaxModifiedTime);
+        writer.WriteStructsFromList(Items);
     }
 }
 

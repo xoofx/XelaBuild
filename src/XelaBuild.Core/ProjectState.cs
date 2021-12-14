@@ -180,7 +180,7 @@ public class ProjectState
         var filePath = item.EvaluatedInclude;
         var fileInfo = FileUtilities.GetFileInfoNoThrow(filePath);
         if (fileInfo == null) return;
-        HashFile(filePath, fileInfo.LastWriteTimeUtc, ref hashAndDateTime);
+        HashFile(filePath, fileInfo.LastWriteTime, ref hashAndDateTime);
     }
 
 
