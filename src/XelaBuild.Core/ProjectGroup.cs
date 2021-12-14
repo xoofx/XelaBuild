@@ -104,10 +104,10 @@ public class ProjectGroup : IDisposable
             }
         }
 
-        var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
-        projectState.ProjectInstance = new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
+        //var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
+        //projectState.ProjectInstance = project.CreateProjectInstance(); //new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
 
-        //projectState.ProjectInstance = new ProjectInstance(projectPath, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection);
+        projectState.ProjectInstance = new ProjectInstance(projectPath, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection);
         //var instance = projectState.ProjectInstance;
         //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
 
@@ -125,4 +125,3 @@ public class ProjectGroup : IDisposable
         _projectCollection.UnloadAllProjects();
         _projectCollection.Dispose();
     }
-}
