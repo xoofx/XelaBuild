@@ -125,3 +125,70 @@ public class ProjectGroup : IDisposable
         _projectCollection.UnloadAllProjects();
         _projectCollection.Dispose();
     }
+}
+
+public class CachedProjectGroup
+{
+    public CachedProjectGroup()
+    {
+        Projects = new List<CachedProject>();
+    }
+
+    public string FullPath { get; set; }
+
+    public List<CachedProject> Projects { get; }
+}
+
+public class CachedProject
+{
+    public CachedProject()
+    {
+        ProjectDependencies = new List<CachedProject>();
+        Imports = new List<CachedProjectImport>();
+        Globs = new List<CachedGlobItem>();
+    }
+
+    public int Index { get; internal set; }
+    public bool IsRoot { get; set; }
+    public string ProjectFolder { get; set; }
+    public CachedFileReference File;
+    public List<CachedGlobItem> Globs { get; }
+    public bool IsRestoreSuccessful { get; set; }
+    public CachedFileReference ProjectAssetsCachedFile;
+    public List<CachedProject> ProjectDependencies { get; }
+    public List<CachedProjectImport> Imports { get; }
+}
+
+public interface IFileReference
+{
+    public string FullPath { get; }
+
+    public DateTime LastTimeWhenRead { get; }
+}
+
+public class CachedProjectImport : IFileReference
+{
+    public string FullPath { get; set; }
+    public DateTime LastTimeWhenRead { get; set; }
+}
+
+
+public struct CachedFileReference : IFileReference
+{
+    public string FullPath { get; set; }
+
+    public DateTime LastTimeWhenRead { get; set; }
+}
+
+public class CachedGlobItem
+{
+    public string ItemType { get; set; }
+
+    public string Include { get; set; }
+
+    public string Remove { get; set; }
+
+    public string Exclude { get; set; }
+}
+
+
