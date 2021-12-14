@@ -2,6 +2,7 @@
 using System.IO;
 using XelaBuild;
 using XelaBuild.Core;
+using XelaBuild.Core.Helpers;
 
 // Make sure that we are using our local copy of msbuild
 MsBuildHelper.RegisterCustomMsBuild();

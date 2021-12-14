@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
+using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Core;
 
@@ -134,7 +135,7 @@ public class CachedProjectGroup
         Projects = new List<CachedProject>();
     }
 
-    public string FullPath { get; set; }
+    public CachedFileReference SolutionFile;
 
     public List<CachedProject> Projects { get; }
 }
@@ -143,9 +144,11 @@ public class CachedProject
 {
     public CachedProject()
     {
-        ProjectDependencies = new List<CachedProject>();
+        ProjectReferences = new List<CachedProjectReference>();
         Imports = new List<CachedProjectImport>();
         Globs = new List<CachedGlobItem>();
+        ProjectReferenceTargets = new List<CachedProjectReferenceTargets>();
+        ProjectDependencies = new List<CachedProject>();
     }
 
     public int Index { get; internal set; }
@@ -155,8 +158,36 @@ public class CachedProject
     public List<CachedGlobItem> Globs { get; }
     public bool IsRestoreSuccessful { get; set; }
     public CachedFileReference ProjectAssetsCachedFile;
+
+    public CachedFileReference BuildInputsCacheFile;
+
+    public CachedFileReference BuildResultCacheFile;
+
+    public List<CachedProjectReference> ProjectReferences { get; }
     public List<CachedProject> ProjectDependencies { get; }
     public List<CachedProjectImport> Imports { get; }
+    public List<CachedProjectReferenceTargets> ProjectReferenceTargets { get; }
+}
+
+public class CachedProjectReference
+{
+    public CachedProject Project { get; set; }
+    public string GlobalPropertiesToRemove { get; set; }
+    public string SetConfiguration { get; set; }
+    public string SetPlatform { get; set; }
+    public string SetTargetFramework { get; set; }
+    public string Properties { get; set; }
+    public string AdditionalProperties { get; set; }
+    public string UndefineProperties { get; set; }
+}
+
+public class CachedProjectReferenceTargets
+{
+    public string Include { get; set; }
+
+    public string Targets { get; set; }
+
+    public bool? OuterBuild { get; set; }
 }
 
 public interface IFileReference

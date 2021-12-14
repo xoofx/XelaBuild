@@ -7,6 +7,7 @@ using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using XelaBuild.Core;
+using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Tasks;
 

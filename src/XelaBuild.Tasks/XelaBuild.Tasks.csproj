@@ -8,8 +8,8 @@
 
   <ItemGroup>
     <Compile Include="..\XelaBuild.Core\AssemblyGroup.cs" Link="AssemblyGroup.cs" />
-    <Compile Include="..\XelaBuild.Core\FileUtilities.cs" Link="FileUtilities.cs" />
-    <Compile Include="..\XelaBuild.Core\SpookyHash.cs" Link="SpookyHash.cs" />
+    <Compile Include="..\XelaBuild.Core\Helpers\FileUtilities.cs" Link="FileUtilities.cs" />
+    <Compile Include="..\XelaBuild.Core\Helpers\SpookyHash.cs" Link="SpookyHash.cs" />
   </ItemGroup>
 
   <ItemGroup>

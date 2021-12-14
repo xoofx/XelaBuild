@@ -5,6 +5,7 @@ using System.IO;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
 using XelaBuild.Core;
+using XelaBuild.Core.Helpers;
 
 namespace XelaBuild;
 

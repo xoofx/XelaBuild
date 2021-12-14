@@ -6,7 +6,7 @@ using System.Runtime.Loader;
 using Microsoft.Build.CommandLine;
 using Microsoft.Build.Locator;
 
-namespace XelaBuild.Core;
+namespace XelaBuild.Core.Helpers;
 
 /// <summary>
 /// Helper class to deal with a local copy of msbuild but also to allow to run MsBuild as a node

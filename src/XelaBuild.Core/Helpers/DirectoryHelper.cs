@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace XelaBuild.Core;
+namespace XelaBuild.Core.Helpers;
 
 internal static class DirectoryHelper
 {
