@@ -9,7 +9,7 @@ MsBuildHelper.RegisterCustomMsBuild();
 
 // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
 // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
-// Also, if `dotnet.exe` is not 2 folders above msbuild.dll, as it is the case in our local build, then it will use this exe has the msbuild server process
+// Also, if `dotnet.exe` is not 2 folders above msbuild.dll, as it is not the case in our local build, then it will use this exe as the msbuild server process
 if (MsBuildHelper.IsCommandLineArgsForMsBuild(args))
 {
     var exitCode = MsBuildHelper.Run(args);
