@@ -14,13 +14,23 @@ public static class ResultsHelper
 
         int resultCount = 0;
         bool hasErrors = false;
-        if (resultsArg is IReadOnlyDictionary<ProjectGraphNode, BuildResult> results)
+        if (resultsArg is GraphBuildResult graphBuildResult)
         {
-            foreach (var result in results)
+            if (graphBuildResult.OverallResult == BuildResultCode.Failure)
             {
-                CheckBuildResult(result.Key.ProjectInstance.FullPath, result.Value);
+                Console.Error.WriteLine($"msbuild failed on project {builder.Provider.GetProjectPaths().FirstOrDefault()} {graphBuildResult.Exception}");
+                hasErrors = true;
             }
-            resultCount = results.Count;
+            else
+            {
+                var resultsPerNode = graphBuildResult.ResultsByNode;
+                foreach (var result in resultsPerNode)
+                {
+                    CheckBuildResult(result.Key.ProjectInstance.FullPath, result.Value);
+                }
+
+                resultCount = resultsPerNode.Count;
+            }
         }
         else if (resultsArg is BuildResult result)
         {

@@ -126,21 +126,21 @@ public class Builder : IDisposable
     //    }
     //}
 
-    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> Run(ProjectGroup group, params string[] targets)
+    public GraphBuildResult Run(ProjectGroup group, params string[] targets)
     {
         return Run( group, group.ProjectGraph.GraphRoots.First(), targets);
     }
-    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> Run(ProjectGroup group, LoggerVerbosity verbosity, params string[] targets)
+    public GraphBuildResult Run(ProjectGroup group, LoggerVerbosity verbosity, params string[] targets)
     {
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Down, verbosity);
     }
     
-    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> RunRootOnly(ProjectGroup group, params string[] targets)
+    public GraphBuildResult RunRootOnly(ProjectGroup group, params string[] targets)
     {
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Current);
     }
 
-    public IReadOnlyDictionary<ProjectGraphNode, BuildResult> Run(ProjectGroup group, ProjectGraphNode startingNode, 
+    public GraphBuildResult Run(ProjectGroup group, ProjectGraphNode startingNode, 
                                                                              IList<string> targetNames,
                                                                              ProjectGraphNodeDirection direction = ProjectGraphNodeDirection.Down, LoggerVerbosity? loggerVerbosity = null)
                                                                              
@@ -174,7 +174,7 @@ public class Builder : IDisposable
             var graphBuildRequest = new GraphBuildRequestData(group.ProjectGraph, copyTargetNames, null, BuildRequestDataFlags.None, new [] { startingNode }, direction, projectCacheFilePathDelegate);
             var submission = _buildManager.PendBuildRequest(graphBuildRequest);
             var result = submission.Execute();
-            return result.ResultsByNode;
+            return result;
         } 
         finally
         {

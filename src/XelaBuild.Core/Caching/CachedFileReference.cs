@@ -12,7 +12,9 @@ public record struct CachedFileReference(string FullPath, DateTime LastWriteTime
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public CachedFileReference Read(TransferBinaryReader reader)
     {
-        return new CachedFileReference(reader.ReadString(), reader.ReadDateTime());
+        FullPath = reader.ReadString();
+        LastWriteTime = reader.ReadDateTime();
+        return this;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

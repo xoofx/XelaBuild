@@ -6,6 +6,15 @@ namespace XelaBuild.Core.Helpers;
 
 internal class FileUtilities
 {
+    public static void EnsureFolderForFilePath(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory != null && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+    
     public static string NormalizePath(string path)
     {
         path = Path.GetFullPath(path);

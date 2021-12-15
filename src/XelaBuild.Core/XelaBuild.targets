@@ -1,17 +1,14 @@
 <Project>
-  <UsingTask TaskName="XelaBuild.Tasks.CacheBuilder" AssemblyFile="$(MSBuildThisFileDirectory)XelaBuild.Tasks.dll"/>
+  <UsingTask TaskName="XelaBuild.Tasks.XelaBuildInputsCacheBuilder" AssemblyFile="$(MSBuildThisFileDirectory)XelaBuild.Tasks.dll"/>
 
-  <ItemGroup Condition="'$(IsGraphBuild)' == 'true'">
-    <ProjectReferenceTargets Include="XelaRestore" Targets="Restore;_IsProjectRestoreSupported;_GenerateRestoreProjectPathWalk;_GenerateRestoreGraphProjectEntry;_GenerateProjectRestoreGraph;_GetRestoreSettingsPerFramework;_GetRestorePackagesPathOverride;_GetRestoreRepositoryPathOverride;_GetRestoreSourcesOverride;_GetRestoreFallbackFoldersOverride" />
-  </ItemGroup>
+  <PropertyGroup>
+    <XelaBuildResultCacheFile Condition="'$(XelaBuildResultCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildResult.cache</XelaBuildResultCacheFile>
+    <XelaBuildInputsCacheFile Condition="'$(XelaBuildInputsCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildInputs.cache</XelaBuildInputsCacheFile>
+  </PropertyGroup>
 
-  <Target Name="XelaRestore" DependsOnTargets="Restore">
-  </Target>
-
-  <Target Name="XelaCollectInputs" BeforeTargets="Compile">
-    <!--<Message Importance="High" Text="Log from XelaCollectInputs"/>-->
-    <CacheBuilder AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)">
-      <Output TaskParameter="CacheFiles" ItemName="_XelaCollectInputs" />
-    </CacheBuilder>
+  <Target Name="XelaBuildInputsCache" BeforeTargets="Compile">
+    <XelaBuildInputsCacheBuilder AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)" OutputCacheFile="$(XelaBuildInputsCacheFile)">
+      <Output TaskParameter="OutputCacheFileWritten" PropertyName="_XelaBuildInputsCacheFileWrittenTo" />
+    </XelaBuildInputsCacheBuilder>
   </Target>
 </Project>

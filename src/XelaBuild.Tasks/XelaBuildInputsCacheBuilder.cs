@@ -12,7 +12,7 @@ using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Tasks;
 
-public class CacheBuilder : Task
+public class XelaBuildInputsCacheBuilder : Task
 {
     [Required]
     public ITaskItem[] AssemblyReferences { get; set; }
@@ -23,8 +23,11 @@ public class CacheBuilder : Task
     [Required]
     public ITaskItem[] Analyzers { get; set; }
         
+    [Required]
+    public string OutputCacheFile { get; set; }
+
     [Output]
-    public ITaskItem[] CacheFiles { get; set; }
+    public bool OutputCacheFileWritten { get; set; }
 
     public override bool Execute()
     {
@@ -67,9 +70,11 @@ public class CacheBuilder : Task
         }
 
         // Write cache files
-        var cacheFiles = new List<TaskItem>();
         bool hasErrors = false;
-        foreach (var pair in map)
+
+        var cachedBuildInput = new CachedBuildInputs();
+
+        foreach (var pair in map.OrderBy(x => x.Key))
         {
             var key = pair.Key;
             var group = pair.Value;
@@ -78,8 +83,8 @@ public class CacheBuilder : Task
             try
             {
                     
-                group.TryWriteToFile(filePath);
-                cacheFiles.Add(new TaskItem(filePath));
+                var written = group.TryWriteToFile(filePath, out var lastWriteTime);
+                cachedBuildInput.Assemblies.Add(new CachedFileReference(filePath, lastWriteTime));
             }
             catch (Exception ex)
             {
@@ -88,7 +93,9 @@ public class CacheBuilder : Task
             }
         }
 
-        CacheFiles = cacheFiles.ToArray<ITaskItem>();
+        cachedBuildInput.WriteToFile(OutputCacheFile);
+        // TODO: we could avoid writing the file in the future with a prefix hashing to check if there are any changes
+        OutputCacheFileWritten = true;
 
         return !hasErrors;
     }

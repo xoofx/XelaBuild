@@ -7,16 +7,24 @@ using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
+public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
 {
-    private const uint Magic = 0x43494243; // "CBIC"
-    private const uint Version = 0x0001_0000;
+    private const string FrameworkPrefix = "fwk-";
+    private const string PackagePrefix = "pkg-";
+    private const string DllPrefix = "dll-";
+
+    /// <summary>
+    /// CAGF: Cached Assembly Group File
+    /// </summary>
+    public static readonly CachedMagicVersion CurrentMagicVersion = new("CAGF", 1, 0);
 
     public CachedAssemblyGroup()
     {
+        MagicVersion = CurrentMagicVersion;
         Items = new List<CachedFileReference>();
         MaxModifiedTime = DateTime.MinValue;
     }
+    public CachedMagicVersion MagicVersion { get; set; }
 
     public ulong Hash1;
 
@@ -28,30 +36,17 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
 
     public static CachedAssemblyGroup ReadFromFile(string filePath)
     {
-        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return ReadFromStream(stream);
+        return CachedBinaryHelper.ReadFromFile<CachedAssemblyGroup>(filePath);
     }
-
-    // Format of the file
-    // uint: magic "CBIC" 0x43494243 (CacheBuilderIndexCache)
-    // uint: version 0x0001_0000
-    // ulong: Hash1
-    // ulong: Hash2
-    // long: MaxModifiedTime
-    // int: number of entries
-    // entry+: long time (tick_utc), int length (number of of UTF 8 bytes), length bytes
 
     public static CachedAssemblyGroup ReadFromStream(Stream stream)
     {
-        var group = new CachedAssemblyGroup();
-        using var reader = new TransferBinaryReader(stream, Encoding.Default, true);
+        return CachedBinaryHelper.ReadFromStream<CachedAssemblyGroup>(stream);
+    }
 
-        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid Magic Number");
-        var version = reader.ReadUInt32();
-        if (version != Version) throw new InvalidDataException($"Invalid Version {version} instead of {Version} only supported");
-
-        group.Read(reader);
-        return group;
+    public static bool ShouldReload(string filePath)
+    {
+        return filePath.StartsWith("dll-");
     }
 
     public string GetFilePath(CachedAssemblyGroupKey key, string folder)
@@ -68,16 +63,22 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
             builder.Append(Path.DirectorySeparatorChar);
         }
 
+        // The hash takes into account the timestamp as it should be stable for all
+        // packages, assembly references
+        var customHash2 = (((ulong)MaxModifiedTime.Ticks) * 397) ^ Hash2;
+
         switch (key.GroupKind)
         {
             case CachedAssemblyGroupKind.Framework:
-                builder.Append("fwk-");
+                builder.Append(FrameworkPrefix);
                 break;
             case CachedAssemblyGroupKind.Package:
-                builder.Append("pkg-");
+                builder.Append(PackagePrefix);
                 break;
             case CachedAssemblyGroupKind.Dll:
-                builder.Append("dll-");
+                builder.Append(DllPrefix);
+                // Except for dll where we re-read them from disk
+                customHash2 = Hash2;
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -92,46 +93,32 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
 
         builder.Append('-');
 
-        builder.Append(HexHelper.ToString(Hash1, Hash2));
+        builder.Append(HexHelper.ToString(Hash1, customHash2));
 
         builder.Append(".cache");
 
         return builder.ToString();
     }
 
-    public void TryWriteToFile(string filePath)
+    public bool TryWriteToFile(string filePath, out DateTime lastWriteTime)
     {
         // Try not to overwrite a file already created (files are supposed to be unique)
-        if (File.Exists(filePath)) return;
-
-        FileStream stream = null;
-
-        try
+        var fileInfo = FileUtilities.GetFileInfoNoThrow(filePath);
+        if (fileInfo != null && fileInfo.Exists)
         {
-            stream = new FileStream(filePath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        }
-        catch (IOException)
-        {
-            // ignore
+            lastWriteTime = fileInfo.LastWriteTimeUtc;
+            return true;
         }
 
-        try
-        {
-            WriteToStream(stream);
-        }
-        finally
-        {
-            stream?.Dispose();
-        }
+        CachedBinaryHelper.WriteToFile(filePath, this);
+        fileInfo = FileUtilities.GetFileInfoNoThrow(filePath);
+        lastWriteTime = fileInfo.LastWriteTimeUtc;
+        return true;
     }
 
     public void WriteToStream(Stream stream)
     {
-        using var writer = new TransferBinaryWriter(stream, Encoding.Default, true);
-        writer.Write((uint)Magic);
-        writer.Write((uint)Version);
-        this.Write(writer);
-        writer.Flush();
+        CachedBinaryHelper.WriteToStream(stream, this);
     }
 
     public CachedAssemblyGroup Read(TransferBinaryReader reader)
@@ -152,7 +139,23 @@ public class CachedAssemblyGroup : ITransferable<CachedAssemblyGroup>
     }
 }
 
-public record struct CachedAssemblyGroupKey(CachedAssemblyGroupKind GroupKind, string Name, string Version);
+public record struct CachedAssemblyGroupKey(CachedAssemblyGroupKind GroupKind, string Name, string Version) : IComparable<CachedAssemblyGroupKey>, IComparable
+{
+    public int CompareTo(CachedAssemblyGroupKey other)
+    {
+        var groupKindComparison = GroupKind.CompareTo(other.GroupKind);
+        if (groupKindComparison != 0) return groupKindComparison;
+        var nameComparison = string.Compare(Name, other.Name, StringComparison.Ordinal);
+        if (nameComparison != 0) return nameComparison;
+        return string.Compare(Version, other.Version, StringComparison.Ordinal);
+    }
+
+    public int CompareTo(object obj)
+    {
+        if (ReferenceEquals(null, obj)) return 1;
+        return obj is CachedAssemblyGroupKey other ? CompareTo(other) : throw new ArgumentException($"Object must be of type {nameof(CachedAssemblyGroupKey)}");
+    }
+}
 
 public enum CachedAssemblyGroupKind
 {

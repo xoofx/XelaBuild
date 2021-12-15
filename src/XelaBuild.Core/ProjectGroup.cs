@@ -1,10 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
+using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
+using Microsoft.Build.Globbing;
 using Microsoft.Build.Graph;
+using XelaBuild.Core.Caching;
 using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Core;
@@ -12,12 +17,14 @@ namespace XelaBuild.Core;
 /// <summary>
 /// A group of projects to build for a specific configuration.
 /// </summary>
-public class ProjectGroup : IDisposable
+public partial class ProjectGroup : IDisposable
 {
     private readonly ProjectCollection _projectCollection;
     private readonly Builder _builder;
     private ProjectGraph _projectGraph;
     private readonly Dictionary<string, ProjectState> _projectStates;
+    private DateTime _solutionLastWriteTimeWhenRead;
+    private CachedProjectGroup _cachedProjectGroup;
 
     internal ProjectGroup(Builder builder, IReadOnlyDictionary<string, string> globalProperties)
     {
@@ -64,7 +71,8 @@ public class ProjectGroup : IDisposable
     {
         // Initialize the project graph
         var parallelism = 8;
-        var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(FileUtilities.NormalizePath(x), _projectCollection.GlobalProperties));
+        var entryPoints = _builder.Provider.GetProjectPaths().Select(x => new ProjectGraphEntryPoint(FileUtilities.NormalizePath(x), _projectCollection.GlobalProperties)).ToList();
+        _solutionLastWriteTimeWhenRead = File.GetLastWriteTimeUtc(entryPoints.First().ProjectFile);
         _projectGraph = new ProjectGraph(entryPoints, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
 
         // Group graph node with Project
@@ -108,7 +116,9 @@ public class ProjectGroup : IDisposable
         //var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
         //projectState.ProjectInstance = project.CreateProjectInstance(); //new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
 
-        projectState.ProjectInstance = new ProjectInstance(projectPath, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection);
+        var xml = ProjectRootElement.Open(projectPath, projectCollection);
+        projectState.ProjectInstanceLastWriteTimeWhenRead = xml.LastWriteTimeWhenRead;
+        projectState.ProjectInstance = new ProjectInstance(xml, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection, ProjectLoadSettings.RecordEvaluatedItemElements);
         //var instance = projectState.ProjectInstance;
         //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
 

@@ -47,11 +47,17 @@ public class CachedProjectGroup : ITransferable<CachedProjectGroup>
         {
             Projects = new Dictionary<CachedProject, int>();
             OrderedProjects = new List<CachedProject>();
+            Imports = new Dictionary<CachedImportFileReference, int>();
+            OrderedImports = new List<CachedImportFileReference>();
         }
 
         public Dictionary<CachedProject, int> Projects { get; }
 
         public List<CachedProject> OrderedProjects { get; }
+
+        public Dictionary<CachedImportFileReference, int> Imports { get; }
+
+        public List<CachedImportFileReference> OrderedImports { get; }
     }
 
     internal class Writer : TransferBinaryWriter
@@ -67,12 +73,13 @@ public class CachedProjectGroup : ITransferable<CachedProjectGroup>
         public Writer(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
         {
             Projects = new Dictionary<CachedProject, int>();
+            Imports = new Dictionary<CachedImportFileReference, int>();
         }
 
         public Dictionary<CachedProject, int> Projects { get; }
+
+        public Dictionary<CachedImportFileReference, int> Imports { get; }
     }
-
-
 }
 
 
@@ -81,7 +88,7 @@ public class CachedProject : ITransferable<CachedProject>
     public CachedProject()
     {
         ProjectReferences = new List<CachedProjectReference>();
-        Imports = new List<CachedFileReference>();
+        Imports = new List<CachedImportFileReference>();
         Globs = new List<CachedGlobItem>();
         ProjectReferenceTargets = new List<CachedProjectReferenceTargets>();
         ProjectDependencies = new List<CachedProject>();
@@ -97,7 +104,7 @@ public class CachedProject : ITransferable<CachedProject>
     public CachedFileReference? BuildResultCacheFile;
     public List<CachedProjectReference> ProjectReferences { get; }
     public List<CachedProject> ProjectDependencies { get; }
-    public List<CachedFileReference> Imports { get; }
+    public List<CachedImportFileReference> Imports { get; }
     public List<CachedProjectReferenceTargets> ProjectReferenceTargets { get; }
     
     public CachedProject Read(TransferBinaryReader readerArg)
@@ -128,7 +135,7 @@ public class CachedProject : ITransferable<CachedProject>
 
             reader.ReadObjectsToList(ProjectReferences);
             reader.ReadObjectsToList(ProjectDependencies);
-            reader.ReadStructsToList(Imports);
+            reader.ReadObjectsToList(Imports);
             reader.ReadObjectsToList(ProjectReferenceTargets);
 
             return this;
@@ -163,7 +170,7 @@ public class CachedProject : ITransferable<CachedProject>
 
             writer.WriteObjectsFromList(ProjectReferences);
             writer.WriteObjectsFromList(ProjectDependencies);
-            writer.WriteStructsFromList(Imports);
+            writer.WriteObjectsFromList(Imports);
             writer.WriteObjectsFromList(ProjectReferenceTargets);
         }
     }

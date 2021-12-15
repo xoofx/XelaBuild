@@ -2,6 +2,7 @@
 using System.IO;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
+using XelaBuild.Core.Caching;
 using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Core;
@@ -17,7 +18,11 @@ public class ProjectState
     public readonly ProjectGroup Group;
 
     //public Project Project;
-    
+
+    public CachedProject CachedProject;
+
+    public DateTime ProjectInstanceLastWriteTimeWhenRead;
+
     public ProjectInstance ProjectInstance;
 
     public ProjectGraphNode ProjectGraphNode;
@@ -30,12 +35,23 @@ public class ProjectState
 
     public string GetBuildResultCacheFilePath()
     {
-        return Path.Combine(ProjectInstance.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(ProjectInstance.FullPath)}.BuildResult.cache");
+        return FileUtilities.NormalizePath(GetSafeNonEmptyPropertyValue("XelaBuildResultCacheFile"));
     }
 
-    public string GetRestoreResultCacheFilePath()
+    public string GetBuildInputCacheFilePath()
     {
-        return Path.Combine(ProjectInstance.GetPropertyValue("IntermediateOutputPath"), $"{Path.GetFileName(ProjectInstance.FullPath)}.RestoreResult.cache");
+        return FileUtilities.NormalizePath(GetSafeNonEmptyPropertyValue("XelaBuildInputsCacheFile"));
+    }
+
+    private string GetSafeNonEmptyPropertyValue(string propertyName)
+    {
+        var propertyValue = ProjectInstance.GetPropertyValue(propertyName);
+        if (string.IsNullOrEmpty(propertyValue))
+        {
+            throw new InvalidOperationException($"Unexpected error. The property `{propertyName}` is not expected to be null or empty");
+        }
+
+        return propertyValue;
     }
 
     /*
@@ -43,7 +59,7 @@ public class ProjectState
     {
         HashAndDateTime hashAndDateTime = default;
         var restoreSuccess = string.Equals(Project.GetPropertyValue("RestoreSuccess") ?? string.Empty, "true",
-            StringComparison.InvariantCultureIgnoreCase);
+            StringComparison.OrdinalIgnoreCase);
         if (!restoreSuccess)
         {
             return true;
