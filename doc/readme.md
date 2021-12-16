@@ -324,6 +324,9 @@ if multiple TargetFrameworks:
 - `_GenerateRestoreProjectPathItemsPerFramework`
 
 
+## Publish
+
+`dotnet publish -r win-x64 -c Release --no-self-contained -p:PublishReadyToRun=true -p:ErrorOnDuplicatePublishOutputFiles=false -f net6.0`
 
 
 
