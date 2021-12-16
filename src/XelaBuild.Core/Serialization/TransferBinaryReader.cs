@@ -11,17 +11,21 @@ namespace XelaBuild.Core.Serialization;
 
 public class TransferBinaryReader : BinaryReader
 {
-    public TransferBinaryReader(Stream input) : base(input)
+    private readonly List<object> _objects;
+
+    public TransferBinaryReader(Stream input) : this(input, Encoding.UTF8)
     {
     }
 
-    public TransferBinaryReader(Stream input, Encoding encoding) : base(input, encoding)
+    public TransferBinaryReader(Stream input, Encoding encoding) : this(input, encoding, false)
     {
     }
 
     public TransferBinaryReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
     {
+        _objects = new();
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TData ReadStruct<TData>(TData data) where TData : struct, ITransferable<TData>
     {
@@ -31,9 +35,50 @@ public class TransferBinaryReader : BinaryReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TData ReadObject<TData>(TData data) where TData : class, ITransferable<TData>
     {
-
-        return data.Read(this);
+        var kind = (TransferObjectReferenceKind)ReadByte();
+        switch (kind)
+        {
+            case TransferObjectReferenceKind.Index:
+            {
+                var id = ReadInt32();
+                return (TData)_objects[id];
+            }
+            case TransferObjectReferenceKind.Data:
+            {
+                _objects.Add(data);
+                return data.Read(this);
+            }
+            case TransferObjectReferenceKind.Null:
+                return null;
+            default:
+                throw new InvalidDataException($"Invalid reference kind {kind} to a {data}. Expecting only 1 or 2.");
+        }
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string ReadStringShared()
+    {
+        var kind = (TransferObjectReferenceKind)ReadByte();
+        switch (kind)
+        {
+            case TransferObjectReferenceKind.Index:
+            {
+                var id = ReadInt32();
+                return (string)_objects[id];
+            }
+            case TransferObjectReferenceKind.Data:
+            {
+                var data = ReadString();
+                _objects.Add(data);
+                return data;
+            }
+            case TransferObjectReferenceKind.Null:
+                return null;
+            default:
+                throw new InvalidDataException($"Invalid reference kind {kind} to a string. Expecting only 1 or 2.");
+        }
+    }
+
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TData? ReadNullableStruct<TData>(TData data) where TData : struct, ITransferable<TData>
@@ -66,7 +111,7 @@ public class TransferBinaryReader : BinaryReader
         for (int i = 0; i < length; i++)
         {
             var item = new TData();
-            item.Read(this);
+            item = ReadObject(item);
             list.Add(item);
         }
     }
@@ -74,7 +119,8 @@ public class TransferBinaryReader : BinaryReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DateTime ReadDateTime()
     {
-        return new DateTime(ReadInt64(), DateTimeKind.Utc);
+        var value = ReadInt64();
+        return new DateTime(value, DateTimeKind.Utc);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -94,5 +140,33 @@ public class TransferBinaryReader : BinaryReader
     public string ReadNullableString()
     {
         return ReadNullability() ? null : ReadString();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int ReadCompressedInt32()
+    {
+        return checked((int)ReadCompressedUInt32());
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint ReadCompressedUInt32()
+    {
+        uint value = 0;
+        while(true)
+        {
+            var valueRead = ReadByte();
+            if ((sbyte) valueRead < 0)
+            {
+                valueRead = (byte)(valueRead & 0x7F);
+            }
+            else
+            {
+                break;
+            }
+            value = value << 7;
+            value |= valueRead;
+        }
+
+        return value;
     }
 }

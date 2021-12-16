@@ -21,6 +21,6 @@ public record struct CachedFileReference(string FullPath, DateTime LastWriteTime
     public void Write(TransferBinaryWriter writer)
     {
         writer.Write(FullPath);
-        writer.Write((long)LastWriteTime.Ticks);
+        writer.Write(LastWriteTime);
     }
 }

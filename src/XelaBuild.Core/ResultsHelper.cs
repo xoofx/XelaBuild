@@ -18,7 +18,7 @@ public static class ResultsHelper
         {
             if (graphBuildResult.OverallResult == BuildResultCode.Failure)
             {
-                Console.Error.WriteLine($"msbuild failed on project {builder.Provider.GetProjectPaths().FirstOrDefault()} {graphBuildResult.Exception}");
+                Console.Error.WriteLine($"msbuild failed on project {builder.Config.SolutionFilePath} {graphBuildResult.Exception}");
                 hasErrors = true;
             }
             else
@@ -34,7 +34,7 @@ public static class ResultsHelper
         }
         else if (resultsArg is BuildResult result)
         {
-            CheckBuildResult(builder.Provider.GetProjectPaths().First(), result);
+            CheckBuildResult(builder.Config.SolutionFilePath, result);
             resultCount = 1;
         }
 

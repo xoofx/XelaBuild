@@ -15,7 +15,13 @@ namespace XelaBuild.Tasks;
 public class XelaBuildInputsCacheBuilder : Task
 {
     [Required]
+    public string ProjectFolder { get; set; }
+
+    [Required]
     public ITaskItem[] AssemblyReferences { get; set; }
+
+    [Required]
+    public ITaskItem[] InputItems { get; set; }
 
     [Required]
     public string OutputCacheFolder { get; set; }
@@ -25,9 +31,6 @@ public class XelaBuildInputsCacheBuilder : Task
         
     [Required]
     public string OutputCacheFile { get; set; }
-
-    [Output]
-    public bool OutputCacheFileWritten { get; set; }
 
     public override bool Execute()
     {
@@ -72,8 +75,35 @@ public class XelaBuildInputsCacheBuilder : Task
         // Write cache files
         bool hasErrors = false;
 
-        var cachedBuildInput = new CachedBuildInputs();
+        var projectFolder = ProjectFolder;
+        // Make sure that the folder ends with `\` or `/`
+        if (!projectFolder.EndsWith(Path.DirectorySeparatorChar))
+        {
+            projectFolder += Path.DirectorySeparatorChar;
+        }
 
+        var cachedBuildInput = new CachedBuildInputs
+        {
+            ProjectFolder = projectFolder
+        };
+
+        // Collect all inputs
+        foreach (var inputItem in InputItems)
+        {
+            var path = FileUtilities.NormalizePath(inputItem.ItemSpec);
+            var fileInfo = FileUtilities.GetFileInfoNoThrow(path);
+            if (fileInfo != null)
+            {
+                // Store relative path from project folder if possible to reduce the size of the cache file
+                if (path.StartsWith(projectFolder))
+                {
+                    path = path.Substring(projectFolder.Length);
+                }
+                cachedBuildInput.InputItems.Add(new CachedFileReference(path, fileInfo.LastWriteTimeUtc));
+            }
+        }
+
+        // Collect all assembly references
         foreach (var pair in map.OrderBy(x => x.Key))
         {
             var key = pair.Key;
@@ -94,9 +124,6 @@ public class XelaBuildInputsCacheBuilder : Task
         }
 
         cachedBuildInput.WriteToFile(OutputCacheFile);
-        // TODO: we could avoid writing the file in the future with a prefix hashing to check if there are any changes
-        OutputCacheFileWritten = true;
-
         return !hasErrors;
     }
 

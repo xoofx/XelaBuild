@@ -25,6 +25,7 @@ public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
         MaxModifiedTime = DateTime.MinValue;
     }
     public CachedMagicVersion MagicVersion { get; set; }
+    public DateTime LastWriteTimeWhenRead { get; set; }
 
     public ulong Hash1;
 

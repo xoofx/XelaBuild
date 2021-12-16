@@ -2,13 +2,22 @@
   <UsingTask TaskName="XelaBuild.Tasks.XelaBuildInputsCacheBuilder" AssemblyFile="$(MSBuildThisFileDirectory)XelaBuild.Tasks.dll"/>
 
   <PropertyGroup>
-    <XelaBuildResultCacheFile Condition="'$(XelaBuildResultCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildResult.cache</XelaBuildResultCacheFile>
     <XelaBuildInputsCacheFile Condition="'$(XelaBuildInputsCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildInputs.cache</XelaBuildInputsCacheFile>
+    <XelaBuildResultCacheFile Condition="'$(XelaBuildResultCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildResult.cache</XelaBuildResultCacheFile>
   </PropertyGroup>
 
-  <Target Name="XelaBuildInputsCache" BeforeTargets="Compile">
-    <XelaBuildInputsCacheBuilder AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)" OutputCacheFile="$(XelaBuildInputsCacheFile)">
-      <Output TaskParameter="OutputCacheFileWritten" PropertyName="_XelaBuildInputsCacheFileWrittenTo" />
-    </XelaBuildInputsCacheBuilder>
-  </Target>
+  <!--<Target Name="XelaBuildInputsCache" 
+          Inputs="@(AdditionalFiles);@(Analyzer);@(Compile);@(DocFileItem);@(EditorConfigFiles);@(EmbeddedFiles);@(LinkResource);@(ReferencePathWithRefAssemblies)" 
+          Outputs="$(XelaBuildInputsCacheFile)"
+          BeforeTargets="Compile">
+    <ItemGroup>
+      <_XelaBuildInputItems Include="@(AdditionalFiles)"/>
+      <_XelaBuildInputItems Include="@(Compile)"/>
+      <_XelaBuildInputItems Include="@(DocFileItem)"/>
+      <_XelaBuildInputItems Include="@(EditorConfigFiles)"/>
+      <_XelaBuildInputItems Include="@(EmbeddedFiles)"/>
+      <_XelaBuildInputItems Include="@(LinkResource)"/>
+    </ItemGroup>
+    <XelaBuildInputsCacheBuilder ProjectFolder="$(MSBuildProjectDirectory)" InputItems="@(_XelaBuildInputItems)" AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)" OutputCacheFile="$(XelaBuildInputsCacheFile)"/>
+  </Target>-->
 </Project>

@@ -19,11 +19,13 @@ public class ProjectState
 
     //public Project Project;
 
+    public bool Restored { get; private set; }
+
     public CachedProject CachedProject;
 
-    public DateTime ProjectInstanceLastWriteTimeWhenRead;
+    public DateTime ProjectInstanceLastWriteTimeWhenRead { get; private set; }
 
-    public ProjectInstance ProjectInstance;
+    public ProjectInstance ProjectInstance { get; private set; }
 
     public ProjectGraphNode ProjectGraphNode;
 
@@ -32,6 +34,13 @@ public class ProjectState
     public DateTime LastResultTime;
 
     public ProjectStateHash ProjectStateHash { get; }
+
+    public void InitializeFromProjectInstance(ProjectInstance instance, DateTime lastWriteTimeWhenRead)
+    {
+        ProjectInstanceLastWriteTimeWhenRead = lastWriteTimeWhenRead;
+        ProjectInstance = instance;
+        Restored = instance.GetPropertyValue("RestoreSuccess")?.ToLowerInvariant() == "true";
+    }
 
     public string GetBuildResultCacheFilePath()
     {
@@ -164,7 +173,7 @@ public class ProjectState
             HashItem(compileItem, ref hashAndDateTime);
         }
 
-        foreach (var compileItem in Project.GetItems("Reference"))
+        foreach (var compileItem in Project.GetItems("Index"))
         {
             HashItem(compileItem, ref hashAndDateTime);
         }

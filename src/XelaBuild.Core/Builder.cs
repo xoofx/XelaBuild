@@ -14,22 +14,35 @@ namespace XelaBuild.Core;
 /// <summary>
 /// Simple hosting of BuildManager from msbuild
 /// </summary>
-public class Builder : IDisposable
+public partial class Builder : IDisposable
 {
 #if DEBUG
     internal readonly int MaxNodeCount = 1;
 #else
-    internal readonly int MaxNodeCount = 10;
+    // don't take all CPUs to let some space for the other processes (e.g VBCSCompiler)
+    // Ideally, we should schedule as wide as the maximum of number of projects we could schedule concurrently
+    // capped by the processor count...
+    internal readonly int MaxNodeCount = Math.Max(1, Environment.ProcessorCount / 2);
 #endif
 
     private readonly BuildManager _buildManager;
     private readonly List<ProjectGroup> _groups;
+    private ProjectCollection _emptyCollection;
 
-    public Builder(ProjectsProvider provider)
+    public Builder(BuildConfiguration config)
     {
-        Provider = provider ?? throw new ArgumentNullException(nameof(provider));
+        Config = config ?? throw new ArgumentNullException(nameof(config));
+
+        // Initialize the logger
+        InitializeLoggers(out _log);
+
+        // Setup env variable used by XelaBuild.targets
+        Environment.SetEnvironmentVariable("XelaBuildCacheDir", config.GlobalCacheFolder);
+        // Override msbuild targets to use our special targets file to inject our tasks
+        Environment.SetEnvironmentVariable("CustomAfterMicrosoftCommonTargets", Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(Builder).Assembly.Location), "XelaBuild.targets")));
 
         ProjectCollectionRootElementCache = new ProjectCollectionRootElementCache(true, true);
+
         _groups = new List<ProjectGroup>();
 
         // By default for the build folder:
@@ -37,6 +50,8 @@ public class Builder : IDisposable
         // - if we have a project file to the `build` folder in 2 folders above the project (so usually same level than the solution)
 
         _buildManager = new BuildManager();
+
+        Verbosity = LoggerVerbosity.Normal;
 
         //var cacheFiles = _cacheFolder.ListCacheFiles().ToArray();
         //var results = _buildManager.LoadCachedResults(cacheFiles);
@@ -53,7 +68,9 @@ public class Builder : IDisposable
         //}
     }
 
-    public ProjectsProvider Provider { get; }
+    public BuildConfiguration Config { get; }
+
+    public LoggerVerbosity Verbosity { get; set; }
 
     internal ProjectCollectionRootElementCache ProjectCollectionRootElementCache { get; }
 
@@ -63,16 +80,15 @@ public class Builder : IDisposable
     {
         foreach (var properties in arrayOfGlobalProperties)
         {
-            LoadProjectGroup(properties);
+            CreateProjectGroup(properties);
         }
 
         LoadCachedBuildResults();
     }
 
-    public ProjectGroup LoadProjectGroup(IReadOnlyDictionary<string, string> properties)
+    public ProjectGroup CreateProjectGroup(IReadOnlyDictionary<string, string> properties)
     {
         var group = new ProjectGroup(this, properties);
-        group.InitializeGraph();
         _groups.Add(group);
         return group;
     }
@@ -128,11 +144,7 @@ public class Builder : IDisposable
 
     public GraphBuildResult Run(ProjectGroup group, params string[] targets)
     {
-        return Run( group, group.ProjectGraph.GraphRoots.First(), targets);
-    }
-    public GraphBuildResult Run(ProjectGroup group, LoggerVerbosity verbosity, params string[] targets)
-    {
-        return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Down, verbosity);
+        return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Down);
     }
     
     public GraphBuildResult RunRootOnly(ProjectGroup group, params string[] targets)
@@ -142,11 +154,11 @@ public class Builder : IDisposable
 
     public GraphBuildResult Run(ProjectGroup group, ProjectGraphNode startingNode, 
                                                                              IList<string> targetNames,
-                                                                             ProjectGraphNodeDirection direction = ProjectGraphNodeDirection.Down, LoggerVerbosity? loggerVerbosity = null)
+                                                                             ProjectGraphNodeDirection direction = ProjectGraphNodeDirection.Down)
                                                                              
     {
         // Build node in //
-        var parameters = CreateParameters(group.ProjectCollection, loggerVerbosity);
+        var parameters = CreateParameters(group.ProjectCollection);
 
         GraphBuildCacheFilePathDelegate projectCacheFilePathDelegate = null;
         //GraphBuildInputsDelegate projectGraphBuildInputs = null;
@@ -167,7 +179,7 @@ public class Builder : IDisposable
         //    projectGraphBuildInputs = node => node.ProjectReferences.SelectMany(GetTransitiveProjectReferences);
         //    parameters.IsolateProjects = true;
         //}
-        
+
         _buildManager.BeginBuild(parameters);
         try
         {
@@ -194,46 +206,83 @@ public class Builder : IDisposable
             }
         }
     }
-    
+
     public BuildResult Restore(ProjectGroup group)
     {
-        var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
-        {
-            ["Platform"] = "Any CPU",
-            ["NuGetConsoleProcessFileName"] = Path.Combine(Path.GetDirectoryName(typeof(Builder).Assembly.Location), "XelaBuild.NuGetRestore.exe"),
-            ["RestoreUseStaticGraphEvaluation"] = "true"
-        };
-        var collection = new ProjectCollection(properties);
-        var parameters = CreateParameters(collection, LoggerVerbosity.Quiet);
+        return RestoreSolution(new ProjectGroup[] {group})[group];
+    }
+    
+    public Dictionary<ProjectGroup, BuildResult> RunSolution(string target, params ProjectGroup[] groups)
+    {
+        _emptyCollection ??= new ProjectCollection(new Dictionary<string, string>(), null, null,
+            ToolsetDefinitionLocations.Default, 1, false, true, ProjectCollectionRootElementCache);
 
+        var parameters = CreateParameters(_emptyCollection);
+
+        var results = new Dictionary<ProjectGroup, BuildResult>();
         _buildManager.BeginBuild(parameters);
         try
         {
-            var graphBuildRequest = new BuildRequestData(Provider.GetProjectPaths().First(), properties, null, new[] {"Restore"}, null);
-            var submission = _buildManager.PendBuildRequest(graphBuildRequest);
-            var result = submission.Execute();
-            return result;
+            if (groups.Length == 1)
+            {
+                var group = groups[0];
+                var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
+                {
+                    ["Platform"] = "Any CPU"
+                };
+                properties.Remove("IsGraphBuild");
+                var buildRequest = new BuildRequestData(Config.SolutionFilePath,
+                    properties, null, new[] { target }, null);
+                var submission = _buildManager.PendBuildRequest(buildRequest);
+                var result = submission.Execute();
+                results[group] = result;
+            }
+            else
+            {
+
+                foreach (var group in groups)
+                {
+                    var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
+                    {
+                        ["Platform"] = "Any CPU"
+                    };
+                    properties.Remove("IsGraphBuild");
+                    var graphBuildRequest = new BuildRequestData(Config.SolutionFilePath,
+                        properties, null, new[] { target }, null);
+                    var submission = _buildManager.PendBuildRequest(graphBuildRequest);
+                    submission.ExecuteAsync(buildSubmission =>
+                    {
+                        lock (results)
+                        {
+                            results[group] = buildSubmission.BuildResult;
+                        }
+                    }, null);
+                }
+            }
         }
         finally
         {
             _buildManager.EndBuild();
         }
+        return results;
     }
 
-    private BuildParameters CreateParameters(ProjectCollection projectCollection, LoggerVerbosity? verbosity)
+    public Dictionary<ProjectGroup, BuildResult> BuildSolution(params ProjectGroup[] groups)
+    {
+        return RunSolution("Build", groups);
+    }
+
+    public Dictionary<ProjectGroup, BuildResult> RestoreSolution(params ProjectGroup[] groups)
+    {
+        return RunSolution("Restore", groups);
+    }
+
+    private BuildParameters CreateParameters(ProjectCollection projectCollection)
     {
         var loggers = new List<ILogger>();
 
-        if (verbosity.HasValue)
-        {
-            loggers.Add(new ConsoleLogger(verbosity.Value));
-        }
-        else
-        {
-            loggers.Add(new ConsoleLogger(LoggerVerbosity.Quiet));
-        }
-
-        loggers.Add(new BinaryLogger() { Parameters = "msbuild.binlog", Verbosity = LoggerVerbosity.Diagnostic });
+        loggers.Add(new ConsoleLogger(Verbosity));
+        //loggers.Add(new BinaryLogger() { Parameters = "msbuild.binlog", Verbosity = LoggerVerbosity.Diagnostic });
 
         var parameters = new BuildParameters(projectCollection)
         {
@@ -243,7 +292,7 @@ public class Builder : IDisposable
             MaxNodeCount = MaxNodeCount,
             ResetCaches = false, // We don't want the cache to be reset
             DiscardBuildResults = true, // But we don't want results to be stored,
-            ProjectLoadSettings = ProjectLoadSettings.RecordEvaluatedItemElements,
+            //ProjectLoadSettings = ProjectLoadSettings.RecordEvaluatedItemElements,
         };
 
         return parameters;

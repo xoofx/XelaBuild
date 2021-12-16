@@ -5,11 +5,13 @@
     <TargetFramework>net6.0</TargetFramework>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>xelabuild</ToolCommandName>
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\XelaBuild.Tasks\XelaBuild.Tasks.csproj" />
     <ProjectReference Include="..\XelaBuild.Core\XelaBuild.Core.csproj" />
+    <ProjectReference Include="..\..\ext\msbuild\src\MSBuild\MSBuild.csproj" />
   </ItemGroup>
 
 </Project>

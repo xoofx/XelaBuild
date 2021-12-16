@@ -2,8 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Xml;
 using Microsoft.Build.Construction;
+using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
+using Microsoft.Build.Graph;
 using XelaBuild.Core.Caching;
 using XelaBuild.Core.Helpers;
 
@@ -11,13 +16,114 @@ namespace XelaBuild.Core;
 
 public partial class ProjectGroup
 {
-    private void InitializeCachedProjectGroupFromProjectInstance()
+
+
+    private void InitializeGraphFromCachedProjectGroup()
+    {
+        _cachedProjectGroup = CachedProjectGroup.ReadFromFile(IndexCacheFilePath);
+
+
+        var rootProject = _cachedProjectGroup.Projects.First(x => x.IsRoot);
+        
+        // Initialize the project graph
+        var parallelism = 8;
+        var entryPoint = new ProjectGraphEntryPoint(rootProject.File.FullPath, _projectCollection.GlobalProperties);
+        // State the state of the group to restored by default
+        // Will be evaluated by the ProjectGraph
+        Restored = true;
+        try
+        {
+            _solutionLastWriteTimeWhenRead = File.GetLastWriteTimeUtc(entryPoint.ProjectFile);
+            _projectGraph = new ProjectGraph(new[] { entryPoint }, _projectCollection, CreateProjectInstanceFromCachedProjectGroup, parallelism, CancellationToken.None);
+        }
+        catch
+        {
+            Restored = false;
+            throw;
+        }
+
+        // Group graph node with Project
+        foreach (var graphNode in _projectGraph.ProjectNodes)
+        {
+            this.FindProjectState(graphNode).ProjectGraphNode = graphNode;
+        }
+
+        // Check
+        bool hasErrors = false;
+        foreach (var project in _projectCollection.LoadedProjects)
+        {
+            if (string.IsNullOrEmpty(project.GetPropertyValue("TargetFramework")))
+            {
+                Console.Error.WriteLine($"Error: the project {project.FullPath} is multi-targeting {project.GetPropertyValue("TargetFrameworks")}. Multi-targeting is currently not supported by this prototype");
+                hasErrors = true;
+            }
+        }
+
+        if (hasErrors)
+        {
+            throw new InvalidOperationException("Invalid error in project.");
+        }
+    }
+
+    private ProjectInstance CreateProjectInstanceFromCachedProjectGroup(string projectPath, IDictionary<string, string> globalProperties, ProjectCollection projectCollection)
+    {
+        // Need to lock as ProjectGraph can call this callback from multiple threads
+        ProjectState projectState;
+        lock (_projectStates)
+        {
+            if (!_projectStates.TryGetValue(projectPath, out projectState))
+            {
+                projectState = new ProjectState(this);
+                _projectStates[projectPath] = projectState;
+            }
+        }
+
+        var cachedProject = _cachedProjectGroup.Projects.First(x => x.File.FullPath == projectPath);
+        var xml = ProjectRootElement.Create(new XmlTextReader(new StringReader("<Project></Project>")), projectCollection);
+        xml.FullPath = cachedProject.File.FullPath;
+        var instance = new ProjectInstance(xml, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection, ProjectLoadSettings.RecordEvaluatedItemElements);
+        // Transfer properties
+        //foreach (var cachedProperty in cachedProject.Properties)
+        //{
+        //    instance.SetProperty(cachedProperty.Name, cachedProperty.Value);
+        //}
+        instance.SetProperty("InnerBuildProperty", "true");
+        instance.SetProperty("RestoreSuccess", cachedProject.IsRestoreSuccessful ? "true" : "false");
+        instance.SetProperty("XelaBuildInputsCacheFile", cachedProject.BuildInputsCacheFile.FullPath);
+        instance.SetProperty("XelaBuildResultCacheFile", cachedProject.BuildResultCacheFile.FullPath);
+        foreach (var projectRef in cachedProject.ProjectReferences)
+        {
+            instance.AddItem("ProjectReference", projectRef.Project.File.FullPath);
+        }
+        foreach (var projectRefTarget in cachedProject.ProjectReferenceTargets)
+        {
+            var item = instance.AddItem("ProjectReferenceTargets", projectRefTarget.Include);
+            item.SetMetadata("Targets", projectRefTarget.Targets);
+            if (projectRefTarget.OuterBuild.HasValue)
+            {
+                item.SetMetadata("OuterBuild", "true");
+            }
+        }
+        instance.DefaultTargets.Add("Build");
+        projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead);
+
+        if (!projectState.Restored)
+        {
+            Restored = false;
+        }
+        //var instance = projectState.ProjectInstance;
+        //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
+
+        return projectState.ProjectInstance;
+    }
+    
+    private void WriteCachedProjectGroupFromProjectInstance()
     {
         var cachedProjectGroup = new CachedProjectGroup();
 
-        var imports = new Dictionary<ProjectImportInstance, CachedImportFileReference>();
+        var context = new CachedContext();
 
-        cachedProjectGroup.SolutionFile.FullPath = _builder.Provider.GetProjectPaths().First();
+        cachedProjectGroup.SolutionFile.FullPath = _builder.Config.SolutionFilePath;
         cachedProjectGroup.SolutionFile.LastWriteTime = _solutionLastWriteTimeWhenRead;
 
         // Reinitialize CachedProject instances, as they need to be reference-able up-front
@@ -28,14 +134,48 @@ public partial class ProjectGroup
 
         foreach (var project in _projectGraph.ProjectNodesTopologicallySorted)
         {
-            var cachedProject = CreateCachedProject(this.FindProjectState(project), imports);
+            var cachedProject = CreateCachedProject(this.FindProjectState(project), context);
             cachedProjectGroup.Projects.Add(cachedProject);
         }
 
         _cachedProjectGroup = cachedProjectGroup;
+        _cachedProjectGroup.WriteToFile(IndexCacheFilePath);
     }
 
-    private CachedProject CreateCachedProject(ProjectState state, Dictionary<ProjectImportInstance, CachedImportFileReference> imports)
+    private class CachedContext
+    {
+        private readonly Dictionary<ProjectImportInstance, CachedImportFileReference> _imports;
+        private readonly Dictionary<string, string> _stringInstances;
+
+        public CachedContext()
+        {
+            _imports = new Dictionary<ProjectImportInstance, CachedImportFileReference>();
+            _stringInstances = new Dictionary<string, string>();
+        }
+
+        public CachedImportFileReference GetCachedImportFileReference(ProjectImportInstance importInstance)
+        {
+            if (!_imports.TryGetValue(importInstance, out var cachedImportFileReference))
+            {
+                cachedImportFileReference = new CachedImportFileReference(importInstance.FullPath, importInstance.LastWriteTimeWhenRead);
+                _imports.Add(importInstance, cachedImportFileReference);
+            }
+
+            return cachedImportFileReference;
+        }
+
+        public string Internalize(string value)
+        {
+            if (!_stringInstances.TryGetValue(value, out var data))
+            {
+                data = value;
+                _stringInstances[value] = value;
+            }
+            return data;
+        }
+    }
+
+    private CachedProject CreateCachedProject(ProjectState state, CachedContext context)
     {
         var node = state.ProjectGraphNode;
         var cachedProject = state.CachedProject;
@@ -54,6 +194,9 @@ public partial class ProjectGroup
         //public List<CachedGlobItem> Globs { get; }
         FillGlobsFromProjectInstance(project, cachedProject.Globs);
 
+        //public List<CachedProperty> Properties { get; }
+        //FillProperties(project, cachedProject.Properties, context);
+
         //public bool IsRestoreSuccessful { get; set; }
         cachedProject.IsRestoreSuccessful = project.GetPropertyValue("RestoreSuccess")?.ToLowerInvariant() == "true";
 
@@ -63,21 +206,22 @@ public partial class ProjectGroup
         {
             projectAssetsFilePath = FileUtilities.NormalizePath(Path.Combine(project.Directory, projectAssetsFilePath));
             var fileInfo = FileUtilities.GetFileInfoNoThrow(projectAssetsFilePath);
-            if (fileInfo != null)
-            {
-                cachedProject.ProjectAssetsCachedFile = new CachedFileReference(projectAssetsFilePath, fileInfo.LastWriteTimeUtc);
-            }
+            cachedProject.ProjectAssetsCachedFile = new CachedFileReference(projectAssetsFilePath, fileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue);
+        }
+        else
+        {
+            cachedProject.ProjectAssetsCachedFile = new CachedFileReference(string.Empty, DateTime.MaxValue);
         }
 
         //public CachedFileReference? BuildInputsCacheFile;
-        var buildInputCacheFilePath = state.GetBuildResultCacheFilePath();
+        var buildInputCacheFilePath = state.GetBuildInputCacheFilePath();
         var buildInputCacheFileInfo = FileUtilities.GetFileInfoNoThrow(buildInputCacheFilePath);
-        cachedProject.BuildInputsCacheFile = new CachedFileReference(projectAssetsFilePath, buildInputCacheFileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue);
+        cachedProject.BuildInputsCacheFile = new CachedFileReference(buildInputCacheFilePath, buildInputCacheFileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue);
         
         //public CachedFileReference? BuildResultCacheFile;
         var buildResultCacheFilePath = state.GetBuildResultCacheFilePath();
         var buildResultCacheFileInfo = FileUtilities.GetFileInfoNoThrow(buildResultCacheFilePath);
-        cachedProject.BuildResultCacheFile = new CachedFileReference(projectAssetsFilePath, buildResultCacheFileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue);
+        cachedProject.BuildResultCacheFile = new CachedFileReference(buildResultCacheFilePath, buildResultCacheFileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue);
 
         //public List<CachedProjectReference> ProjectReferences { get; }
         FillCachedProjectReferences(project, cachedProject.ProjectReferences);
@@ -92,12 +236,7 @@ public partial class ProjectGroup
         //public List<CachedFileReference> Imports { get; }
         foreach (var importInstance in project.Imports)
         {
-            if (!imports.TryGetValue(importInstance, out var cachedImportFileReference))
-            {
-                cachedImportFileReference = new CachedImportFileReference(importInstance.FullPath, importInstance.LastWriteTimeWhenRead);
-                imports.Add(importInstance, cachedImportFileReference);
-            }
-            cachedProject.Imports.Add(cachedImportFileReference);
+            cachedProject.Imports.Add(context.GetCachedImportFileReference(importInstance));
         }
 
         //public List<CachedProjectReferenceTargets> ProjectReferenceTargets { get; }
@@ -106,24 +245,39 @@ public partial class ProjectGroup
         return cachedProject;
     }
 
+    private void FillProperties(ProjectInstance project, List<CachedProperty> properties, CachedContext context)
+    {
+        foreach (var property in project.Properties)
+        {
+            if (ReservedPropertyNames.IsReservedProperty(property.Name)) continue;
+            properties.Add(new CachedProperty(context.Internalize(property.Name), context.Internalize(property.EvaluatedValue)));
+        }
+    }
+
     private void FillCachedProjectReferences(ProjectInstance project, List<CachedProjectReference> cachedProjectReferences)
     {
         var projectReferences = project.GetItems("ProjectReference").ToList();
         foreach (var projectItemInstance in projectReferences)
         {
+            var projectState = FindProjectState(FileUtilities.NormalizePath(Path.Combine(project.Directory, projectItemInstance.EvaluatedInclude)));
             var cachedProjectReference = new CachedProjectReference
             {
-                Project = FindProjectState(projectItemInstance.Project.FullPath).CachedProject,
-                GlobalPropertiesToRemove = project.GetPropertyValue(nameof(CachedProjectReference.GlobalPropertiesToRemove)),
-                SetConfiguration = project.GetPropertyValue(nameof(CachedProjectReference.SetConfiguration)),
-                SetPlatform = project.GetPropertyValue(nameof(CachedProjectReference.SetPlatform)),
-                SetTargetFramework = project.GetPropertyValue(nameof(CachedProjectReference.SetTargetFramework)),
-                Properties = project.GetPropertyValue(nameof(CachedProjectReference.Properties)),
-                AdditionalProperties = project.GetPropertyValue(nameof(CachedProjectReference.AdditionalProperties)),
-                UndefinedProperties = project.GetPropertyValue(nameof(CachedProjectReference.UndefinedProperties))
+                Project = projectState.CachedProject,
+                GlobalPropertiesToRemove = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.GlobalPropertiesToRemove))),
+                SetConfiguration = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.SetConfiguration))),
+                SetPlatform = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.SetPlatform))),
+                SetTargetFramework = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.SetTargetFramework))),
+                Properties = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.Properties))),
+                AdditionalProperties = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.AdditionalProperties))),
+                UndefinedProperties = InternalizeString(project.GetPropertyValue(nameof(CachedProjectReference.UndefinedProperties)))
             };
             cachedProjectReferences.Add(cachedProjectReference);
         }
+    }
+
+    private static string InternalizeString(string data)
+    {
+        return data is null ? null : string.Intern(data);
     }
 
     private static void FillCachedProjectReferenceTargets(ProjectInstance project, List<CachedProjectReferenceTargets> cachedProjectReferenceTargetsList)
@@ -133,8 +287,8 @@ public partial class ProjectGroup
         {
             var cachedProjectReferenceTarget = new CachedProjectReferenceTargets()
             {
-                Include = projectReferenceTarget.EvaluatedInclude,
-                Targets = projectReferenceTarget.GetMetadataValue("Targets"),
+                Include = InternalizeString(projectReferenceTarget.EvaluatedInclude),
+                Targets = InternalizeString(projectReferenceTarget.GetMetadataValue("Targets")),
                 OuterBuild = string.Equals(projectReferenceTarget.GetMetadataValue("OuterBuild"), "true", StringComparison.OrdinalIgnoreCase) ? true : null,
             };
             cachedProjectReferenceTargetsList.Add(cachedProjectReferenceTarget);
@@ -200,6 +354,8 @@ public partial class ProjectGroup
     {
         var globItem = new CachedGlobItem();
 
+        globItem.ItemType = InternalizeString(itemElement.ItemType);
+
         globItem.Include = globItem.Include != null ? $"{globItem.Include};{project.ExpandString(itemElement.Include)}" : project.ExpandString(itemElement.Include);
 
         if (!string.IsNullOrEmpty(itemElement.Exclude))
@@ -223,6 +379,9 @@ public partial class ProjectGroup
             var actualRemovesAsStr = string.Join(';', actualRemoves);
             globItem.Remove = globItem.Remove != null ? $"{globItem.Remove};{actualRemovesAsStr}" : actualRemovesAsStr;
         }
+
+        globItem.Exclude = globItem.Exclude;
+        globItem.Remove = InternalizeString(globItem.Remove);
 
         return globItem;
     }

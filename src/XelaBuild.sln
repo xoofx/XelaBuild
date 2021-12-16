@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{35D367C1-4800-4E09-BA4E-0FDC5A4786AC}"
 	ProjectSection(SolutionItems) = preProject
 		..\license.txt = ..\license.txt
+		..\ext\msbuild\eng\Packages.props = ..\ext\msbuild\eng\Packages.props
 		readme.md = readme.md
 	EndProjectSection
 EndProject
@@ -32,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSBuild", "..\ext\msbuild\s
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.ProjectGen", "XelaBuild.ProjectGen\XelaBuild.ProjectGen.csproj", "{4877A291-655F-4947-BC0B-86BA17DCF89A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XelaBuild.NuGetRestore", "XelaBuild.NuGetRestore\XelaBuild.NuGetRestore.csproj", "{8DE2407E-9587-4F62-83E1-F75F003BDD23}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XelaBuild.NuGetRestore", "XelaBuild.NuGetRestore\XelaBuild.NuGetRestore.csproj", "{8DE2407E-9587-4F62-83E1-F75F003BDD23}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

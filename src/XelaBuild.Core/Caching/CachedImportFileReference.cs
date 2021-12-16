@@ -15,47 +15,17 @@ public record CachedImportFileReference(string FullPath, DateTime LastWriteTime)
     public DateTime LastWriteTime { get; set; } = LastWriteTime;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public CachedImportFileReference Read(TransferBinaryReader readerArg)
+    public CachedImportFileReference Read(TransferBinaryReader reader)
     {
-        var reader = (CachedProjectGroup.Reader)readerArg;
-        var kind = reader.ReadByte();
-        if (kind == 1)
-        {
-            var id = reader.ReadInt32();
-            return reader.OrderedImports[id];
-        }
-        else if (kind == 2)
-        {
-            var id = reader.Imports.Count;
-            reader.OrderedImports.Add(this);
-            reader.Imports.Add(this, id);
-
-            FullPath = reader.ReadString();
-            LastWriteTime = reader.ReadDateTime();
-
-            return this;
-        }
-
+        FullPath = reader.ReadString();
+        LastWriteTime = reader.ReadDateTime();
         return this;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Write(TransferBinaryWriter writerArg)
+    public void Write(TransferBinaryWriter writer)
     {
-        var writer = (CachedProjectGroup.Writer)writerArg;
-        if (writer.Imports.TryGetValue(this, out var importIndex))
-        {
-            writer.Write((byte)1);
-            writer.Write(importIndex);
-        }
-        else
-        {
-            writer.Write((byte)2);
-            var id = writer.Imports.Count;
-            writer.Imports.Add(this, id);
-
-            writer.Write(FullPath);
-            writer.Write((long)LastWriteTime.Ticks);
-        }
+        writer.Write(FullPath);
+        writer.Write(LastWriteTime);
     }
 }

@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
-using Microsoft.Build.CommandLine;
 using Microsoft.Build.Locator;
 
 namespace XelaBuild.Core.Helpers;
@@ -13,66 +15,38 @@ namespace XelaBuild.Core.Helpers;
 /// </summary>
 public static class MsBuildHelper
 {
-    /// <summary>
-    /// Returns true if the arguments are suggesting that it is msbuild launching a node
-    /// </summary>
-    /// <param name="args">The command line arguments</param>
-    /// <returns><c>true</c> if it is msbuild launching a node; otherwise <c>false</c></returns>
-    public static bool IsCommandLineArgsForMsBuild(string[] args)
-    {
-        // Bug in msbuild: https://github.com/dotnet/msbuild/pull/7013
-        // MSBuild is trying to relaunch this process (instead of using dotnet), so we protect our usage here
-        return args.Length > 0 && args.Any(x => x.StartsWith("/nodemode")) && args.Any(x => x.StartsWith("/nologo"));
-    }
-
-    /// <summary>
-    /// Run msbuild.dll Main (act as if it was an msbuild node running)
-    /// </summary>
-    /// <param name="args">The command line arguments.</param>
-    /// <returns>The exit code</returns>
-    public static int Run(string[] args)
-    {
-        return MSBuildApp.Main(args);
-    }
-
     public static void RegisterCustomMsBuild()
     {
-        var latest = MSBuildLocator.QueryVisualStudioInstances().FirstOrDefault(x => x.Version.Major == 6);
+        // "C:\Program Files\dotnet\dotnet.exe"
+        var folder = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+        var dotnetFolder = GetDotnet6Folder(folder);
 
-        if (latest == null)
+        // Otherwise try to get it from ProgramFiles
+        if (dotnetFolder == null && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            throw new InvalidOperationException($"No .NET 6.x SDKs found. Check installs:\n{string.Join("\n", MSBuildLocator.QueryVisualStudioInstances().Select(x => $"   {GetVisualStudioInstanceToString(x)}"))}");
+            dotnetFolder = GetDotnet6Folder(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet"));
+        }
+
+        // Otherwise go to the much slower route through MSBuildLocator (which is launching the dotnet process)
+        if (dotnetFolder == null)
+        {
+            var latest = MSBuildLocator.QueryVisualStudioInstances().FirstOrDefault(x => x.Version.Major == 6);
+
+            if (latest == null)
+            {
+                throw new InvalidOperationException(
+                    $"No .NET 6.x SDKs found. Check installs:\n{string.Join("\n", MSBuildLocator.QueryVisualStudioInstances().Select(x => $"   {GetVisualStudioInstanceToString(x)}"))}");
+            }
+            dotnetFolder = latest.MSBuildPath;
         }
 
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
-        var msbuildPath = Path.GetFullPath(Path.GetDirectoryName(typeof(MSBuildApp).Assembly.Location));
-
-        // Try to load from 
-        AssemblyLoadContext.Default.Resolving += (context, name) =>
-        {
-            var check = Path.Combine(Path.GetDirectoryName(latest.MSBuildPath), name.Name);
-            var path = check + ".dll";
-            if (File.Exists(path))
-            {
-                return context.LoadFromAssemblyPath(path);
-            }
-            else
-            {
-                path = check + ".exe";
-                if (File.Exists(path))
-                {
-                    return context.LoadFromAssemblyPath(path);
-                }
-            }
-
-            return null;
-        };
-        
-        foreach (KeyValuePair<string, string> keyValuePair in new Dictionary<string, string>()
+        var msbuildPath = Path.GetFullPath(Path.GetDirectoryName(typeof(MsBuildHelper).Assembly.Location));
+        foreach (var keyValuePair in new Dictionary<string, string>()
                  {
                      ["MSBUILD_EXE_PATH"] = Path.Combine(msbuildPath, "MSBuild.dll"),
                      ["MSBuildExtensionsPath"] = msbuildPath,
-                     ["MSBuildSDKsPath"] = latest.MSBuildPath + "Sdks"
+                     ["MSBuildSDKsPath"] = Path.Combine(dotnetFolder, "Sdks")
                  })
         {
             Environment.SetEnvironmentVariable(keyValuePair.Key, keyValuePair.Value);
@@ -82,6 +56,12 @@ public static class MsBuildHelper
         {
             msbuildPath,
         });
+    }
+    private static string GetDotnet6Folder(string dotnetRoot)
+    {
+        if (dotnetRoot == null) return null;
+        var folder = new DirectoryInfo(Path.Combine(dotnetRoot, "sdk", "6.0.100"));
+        return folder.Exists ? folder.FullName : null;
     }
 
     private static string GetVisualStudioInstanceToString(VisualStudioInstance visualStudioInstance)

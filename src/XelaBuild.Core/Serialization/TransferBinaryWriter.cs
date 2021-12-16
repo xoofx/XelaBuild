@@ -8,6 +8,8 @@ namespace XelaBuild.Core.Serialization;
 
 public class TransferBinaryWriter : BinaryWriter
 {
+    private readonly Dictionary<object, int> _objectsToId;
+
     protected TransferBinaryWriter()
     {
     }
@@ -22,6 +24,7 @@ public class TransferBinaryWriter : BinaryWriter
 
     public TransferBinaryWriter(Stream output, Encoding encoding, bool leaveOpen) : base(output, encoding, leaveOpen)
     {
+        _objectsToId = new(ReferenceEqualityComparer.Instance);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -33,19 +36,46 @@ public class TransferBinaryWriter : BinaryWriter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteObject<TData>(TData data) where TData : class, ITransferable<TData>
     {
-        data.Write(this);
-    }
-
-    public void WriteNullableObject<TData>(TData data) where TData : class, ITransferable<TData>
-    {
         if (data is null)
         {
-            WriteNullability(true);
+            Write((byte)TransferObjectReferenceKind.Null);
+            return;
+        }
+
+        if (_objectsToId.TryGetValue(data, out var objectIndex))
+        {
+            Write((byte)TransferObjectReferenceKind.Index);
+            Write((int)objectIndex);
         }
         else
         {
-            WriteNullability(false);
+            Write((byte)TransferObjectReferenceKind.Data);
+            var id = _objectsToId.Count;
+            _objectsToId.Add(data, id);
+
             data.Write(this);
+        }
+    }
+
+    public void WriteStringShared(string data)
+    {
+        if (data is null)
+        {
+            Write((byte)TransferObjectReferenceKind.Null);
+            return;
+        }
+
+        if (_objectsToId.TryGetValue(data, out var stringIndex))
+        {
+            Write((byte)TransferObjectReferenceKind.Index);
+            Write((int)stringIndex);
+        }
+        else
+        {
+            Write((byte)TransferObjectReferenceKind.Data);
+            var id = _objectsToId.Count;
+            _objectsToId.Add(data, id);
+            Write(data);
         }
     }
 
@@ -76,7 +106,7 @@ public class TransferBinaryWriter : BinaryWriter
         Write(list.Count);
         foreach (var item in list)
         {
-            item.Write(this);
+            WriteObject(item);
         }
     }
 
@@ -118,5 +148,33 @@ public class TransferBinaryWriter : BinaryWriter
             WriteNullability(false);
             Write(value);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WriteCompressed(int value)
+    {
+        WriteCompressed(checked((uint) value));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WriteCompressed(uint value)
+    {
+        if (value == 0)
+        {
+            Write((byte)0);
+            return;
+        }
+
+        do
+        {
+            var valueToWrite = (byte)value & 0x7F;
+            value = value >> 7;
+            if (value != 0)
+            {
+                valueToWrite |= 0x80;
+            }
+            Write(valueToWrite);
+
+        } while (value != 0);
     }
 }

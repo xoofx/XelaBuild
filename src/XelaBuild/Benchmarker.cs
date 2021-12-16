@@ -14,27 +14,33 @@ public class Benchmarker
 #if DEBUG
     const int RunCount = 1;
 #else
-    const int RunCount = 5;
+    const int RunCount = 1;
 #endif
     public static void Run(string rootProject)
     {
-        var rootFolder = Path.GetDirectoryName(rootProject);
-
         // ------------------------------------------------------------------------------------------------------------------------
         var clock = Stopwatch.StartNew();
 
         DumpHeader("Load Projects and graph");
-        clock.Restart();
-        //var provider = ProjectsProvider.FromList(Directory.EnumerateFiles(rootFolder, "*.csproj", SearchOption.AllDirectories), Path.Combine(rootFolder, "build"));
-        var provider = ProjectsProvider.FromList(new[] { rootProject }, Path.Combine(rootFolder, ".vs", Path.GetFileNameWithoutExtension(rootProject), "xelabuild"));
+        var config = BuildConfiguration.Create(rootProject);
+        using var builder = new Builder(config);
 
-        // Setup env variable used by XelaBuild.targets
-        Environment.SetEnvironmentVariable("XelaBuildCacheDir", provider.BuildFolder);
-        
-        using var builder = new Builder(provider);
-        var group = builder.LoadProjectGroup(ConfigurationHelper.Release());
-        Console.WriteLine($"Time to load and evaluate {group.Count} projects: {clock.Elapsed.TotalMilliseconds}ms");
+        builder.Trace("This is a trace");
+        builder.Debug("This is a debug");
+        builder.Info("Test");
+        builder.Warning("This is a warning");
+        builder.Error("This is an error");
+        builder.Fatal("This is a fatal");
 
+        Console.WriteLine($"Time to load and evaluate projects: {clock.Elapsed.TotalMilliseconds}ms");
+
+
+        var group = builder.CreateProjectGroup(ConfigurationHelper.Release());
+
+        var rootFolder = Path.GetDirectoryName(config.SolutionFilePath);
+
+        return;
+/*
         //clock.Restart();
         //var countReload = 100;
         //for (int i = 0; i < countReload; i++)
@@ -53,7 +59,7 @@ public class Benchmarker
                 null,
                 () =>
                 {
-                    builder.LoadProjectGroup(ConfigurationHelper.Release());
+                    builder.CreateProjectGroup(ConfigurationHelper.Release());
                     return null;
                 }),
             ("Restore All",
@@ -127,6 +133,7 @@ public static class LibLeafClass {
 
             index++;
         }
+*/
     }
 
     // END
