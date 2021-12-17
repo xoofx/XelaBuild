@@ -44,7 +44,7 @@ public static class MsBuildHelper
         foreach (var keyValuePair in new Dictionary<string, string>()
                  {
                      ["MSBUILD_EXE_PATH"] = Path.Combine(msbuildPath, "MSBuild.dll"),
-                     ["MSBuildExtensionsPath"] = msbuildPath,
+                     ["MSBuildExtensionsPath"] = dotnetFolder,
                      ["MSBuildSDKsPath"] = Path.Combine(dotnetFolder, "Sdks")
                  })
         {
