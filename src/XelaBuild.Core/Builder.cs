@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
@@ -27,19 +26,19 @@ public partial class Builder : IDisposable
 
     private readonly BuildManager _buildManager;
     private readonly List<ProjectGroup> _groups;
-    private ProjectCollection _emptyCollection;
+    private ProjectCollection? _emptyCollection;
 
     public Builder(BuildConfiguration config)
     {
         Config = config ?? throw new ArgumentNullException(nameof(config));
 
         // Initialize the logger
-        InitializeLoggers(out _log);
+        //InitializeLoggers(out _log);
 
         // Setup env variable used by XelaBuild.targets
         Environment.SetEnvironmentVariable("XelaBuildCacheDir", config.GlobalCacheFolder);
         // Override msbuild targets to use our special targets file to inject our tasks
-        Environment.SetEnvironmentVariable("CustomAfterMicrosoftCommonTargets", Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(Builder).Assembly.Location), "XelaBuild.targets")));
+        Environment.SetEnvironmentVariable("CustomAfterMicrosoftCommonTargets", Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "XelaBuild.targets")));
 
         ProjectCollectionRootElementCache = new ProjectCollectionRootElementCache(true, true);
 
@@ -144,11 +143,13 @@ public partial class Builder : IDisposable
 
     public GraphBuildResult Run(ProjectGroup group, params string[] targets)
     {
+        if (group.ProjectGraph is null) throw new InvalidOperationException("ProjectGraph is not initialized");
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Down);
     }
     
     public GraphBuildResult RunRootOnly(ProjectGroup group, params string[] targets)
     {
+        if (group.ProjectGraph is null) throw new InvalidOperationException("ProjectGraph is not initialized");
         return Run(group, group.ProjectGraph.GraphRoots.First(), targets, ProjectGraphNodeDirection.Current);
     }
 
@@ -160,7 +161,7 @@ public partial class Builder : IDisposable
         // Build node in //
         var parameters = CreateParameters(group.ProjectCollection);
 
-        GraphBuildCacheFilePathDelegate projectCacheFilePathDelegate = null;
+        GraphBuildCacheFilePathDelegate? projectCacheFilePathDelegate = null;
         //GraphBuildInputsDelegate projectGraphBuildInputs = null;
 
         var copyTargetNames = new List<string>(targetNames);
@@ -168,17 +169,9 @@ public partial class Builder : IDisposable
         // If we ask for building, cache the results
         if (copyTargetNames.Contains("Build"))
         {
-            projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetBuildResultCacheFilePath();
+            projectCacheFilePathDelegate = node => group.FindProjectState(node).GetBuildResultCacheFilePath();
             parameters.IsolateProjects = true;
         }
-        //else if (copyTargetNames.Contains("Restore"))
-        //{
-        //    copyTargetNames.Clear();
-        //    copyTargetNames.Add("XelaRestore");
-        //    projectCacheFilePathDelegate = node => @group.FindProjectState(node).GetRestoreResultCacheFilePath();
-        //    projectGraphBuildInputs = node => node.ProjectReferences.SelectMany(GetTransitiveProjectReferences);
-        //    parameters.IsolateProjects = true;
-        //}
 
         _buildManager.BeginBuild(parameters);
         try
@@ -194,31 +187,35 @@ public partial class Builder : IDisposable
         }
     }
 
-    private static IEnumerable<ProjectGraphNode> GetTransitiveProjectReferences(ProjectGraphNode node)
-    {
-        yield return node;
-
-        foreach (var subNode in node.ProjectReferences)
-        {
-            foreach (var subNode1 in GetTransitiveProjectReferences(subNode))
-            {
-                yield return subNode1;
-            }
-        }
-    }
-
     public BuildResult Restore(ProjectGroup group)
     {
-        return RestoreSolution(new ProjectGroup[] {group})[group];
+        return RestoreSolution(group)[group];
     }
     
     public Dictionary<ProjectGroup, BuildResult> RunSolution(string target, params ProjectGroup[] groups)
     {
+        if (groups.Length == 0) throw new ArgumentException(@"Value cannot be an empty collection.", nameof(groups));
+        
         _emptyCollection ??= new ProjectCollection(new Dictionary<string, string>(), null, null,
             ToolsetDefinitionLocations.Default, 1, false, true, ProjectCollectionRootElementCache);
 
         var parameters = CreateParameters(_emptyCollection);
 
+        // Create a new request with a Restore target only and specify:
+        //  - BuildRequestDataFlags.ClearCachesAfterBuild to ensure the projects will be reloaded from disk for subsequent builds
+        //  - BuildRequestDataFlags.SkipNonexistentTargets to ignore missing targets since Restore does not require that all targets exist
+        //  - BuildRequestDataFlags.IgnoreMissingEmptyAndInvalidImports to ignore imports that don't exist, are empty, or are invalid because restore might
+        //     make available an import that doesn't exist yet and the <Import /> might be missing a condition.
+        //  - BuildRequestDataFlags.FailOnUnresolvedSdk to still fail in the case when an MSBuild project SDK can't be resolved since this is fatal and should
+        //     fail the build.
+        var isRestore = target == "Restore";
+        var flags = isRestore ? BuildRequestDataFlags.ClearCachesAfterBuild | BuildRequestDataFlags.SkipNonexistentTargets | BuildRequestDataFlags.IgnoreMissingEmptyAndInvalidImports | BuildRequestDataFlags.FailOnUnresolvedSdk : BuildRequestDataFlags.None;
+
+        if (isRestore)
+        {
+            parameters.MaxNodeCount = 1;
+        }
+        
         var results = new Dictionary<ProjectGroup, BuildResult>();
         _buildManager.BeginBuild(parameters);
         try
@@ -226,13 +223,9 @@ public partial class Builder : IDisposable
             if (groups.Length == 1)
             {
                 var group = groups[0];
-                var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
-                {
-                    ["Platform"] = "Any CPU"
-                };
-                properties.Remove("IsGraphBuild");
+                var properties = CreateProperties(group, isRestore);
                 var buildRequest = new BuildRequestData(Config.SolutionFilePath,
-                    properties, null, new[] { target }, null);
+                    properties, null, new[] { target }, null, flags);
                 var submission = _buildManager.PendBuildRequest(buildRequest);
                 var result = submission.Execute();
                 results[group] = result;
@@ -242,13 +235,9 @@ public partial class Builder : IDisposable
 
                 foreach (var group in groups)
                 {
-                    var properties = new Dictionary<string, string>(group.ProjectCollection.GlobalProperties)
-                    {
-                        ["Platform"] = "Any CPU"
-                    };
-                    properties.Remove("IsGraphBuild");
+                    var properties = CreateProperties(group, isRestore);
                     var graphBuildRequest = new BuildRequestData(Config.SolutionFilePath,
-                        properties, null, new[] { target }, null);
+                        properties, null, new[] { target }, null, flags);
                     var submission = _buildManager.PendBuildRequest(graphBuildRequest);
                     submission.ExecuteAsync(buildSubmission =>
                     {
@@ -265,6 +254,25 @@ public partial class Builder : IDisposable
             _buildManager.EndBuild();
         }
         return results;
+
+        Dictionary<string, string> CreateProperties(ProjectGroup group, bool isRestore)
+        {
+            var properties = isRestore ? new Dictionary<string, string>() : new Dictionary<string, string>(group.ProjectCollection.GlobalProperties);
+            if (!isRestore)
+            {
+                var platform = properties["Platform"]?.Replace("AnyCPU", "Any CPU");
+                if (platform != null)
+                {
+                    properties["Platform"] = platform;
+                }
+                properties.Remove("IsGraphBuild");
+            }
+            else
+            {
+                properties["MSBuildRestoreSessionId"] = Guid.NewGuid().ToString("D");
+            }
+            return properties;
+        }
     }
 
     public Dictionary<ProjectGroup, BuildResult> BuildSolution(params ProjectGroup[] groups)
@@ -279,15 +287,14 @@ public partial class Builder : IDisposable
 
     private BuildParameters CreateParameters(ProjectCollection projectCollection)
     {
-        var loggers = new List<ILogger>();
+        var loggers = new List<ILogger> { new ConsoleLogger(Verbosity) };
 
-        loggers.Add(new ConsoleLogger(Verbosity));
         //loggers.Add(new BinaryLogger() { Parameters = "msbuild.binlog", Verbosity = LoggerVerbosity.Diagnostic });
 
         var parameters = new BuildParameters(projectCollection)
         {
             Loggers = loggers,
-            DisableInProcNode = true,
+            DisableInProcNode = false,
             EnableNodeReuse = true,
             MaxNodeCount = MaxNodeCount,
             ResetCaches = false, // We don't want the cache to be reset
@@ -300,6 +307,6 @@ public partial class Builder : IDisposable
 
     public void Dispose()
     {
-        _buildManager?.Dispose();
+        _buildManager.Dispose();
     }
 }

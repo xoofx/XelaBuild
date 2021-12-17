@@ -25,12 +25,12 @@ public class Benchmarker
         var config = BuildConfiguration.Create(rootProject);
         using var builder = new Builder(config);
 
-        builder.Trace("This is a trace");
-        builder.Debug("This is a debug");
-        builder.Info("Test");
-        builder.Warning("This is a warning");
-        builder.Error("This is an error");
-        builder.Fatal("This is a fatal");
+        //builder.Trace("This is a trace");
+        //builder.Debug("This is a debug");
+        //builder.Info("Test");
+        //builder.Warning("This is a warning");
+        //builder.Error("This is an error");
+        //builder.Fatal("This is a fatal");
 
         Console.WriteLine($"Time to load and evaluate projects: {clock.Elapsed.TotalMilliseconds}ms");
 

@@ -6,50 +6,46 @@ using System.Text;
 
 namespace XelaBuild.Core.Serialization;
 
-public class TransferBinaryWriter : BinaryWriter
+public class BinaryTransferWriter : BinaryWriter
 {
     private readonly Dictionary<object, int> _objectsToId;
 
-    protected TransferBinaryWriter()
+    public BinaryTransferWriter(Stream output) : this(output, Encoding.Default)
     {
     }
 
-    public TransferBinaryWriter(Stream output) : base(output)
+    public BinaryTransferWriter(Stream output, Encoding encoding) : this(output, encoding, false)
     {
     }
 
-    public TransferBinaryWriter(Stream output, Encoding encoding) : base(output, encoding)
-    {
-    }
-
-    public TransferBinaryWriter(Stream output, Encoding encoding, bool leaveOpen) : base(output, encoding, leaveOpen)
+    public BinaryTransferWriter(Stream output, Encoding encoding, bool leaveOpen) : base(output, encoding, leaveOpen)
     {
         _objectsToId = new(ReferenceEqualityComparer.Instance);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WriteStruct<TData>(TData data) where TData : struct, ITransferable<TData>
+    public void WriteStruct<TData>(TData data) where TData : struct, IBinaryTransferable<TData>
     {
         data.Write(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WriteObject<TData>(TData data) where TData : class, ITransferable<TData>
+    public void WriteObject<TData>(TData? data) where TData : class, IBinaryTransferable<TData>
     {
         if (data is null)
         {
-            Write((byte)TransferObjectReferenceKind.Null);
+            Write((byte)BinaryTransferObjectReferenceKind.Null);
             return;
         }
 
         if (_objectsToId.TryGetValue(data, out var objectIndex))
         {
-            Write((byte)TransferObjectReferenceKind.Index);
-            Write((int)objectIndex);
+            Write((byte)BinaryTransferObjectReferenceKind.Index);
+            Write(objectIndex);
         }
         else
         {
-            Write((byte)TransferObjectReferenceKind.Data);
+            Write((byte)BinaryTransferObjectReferenceKind.Data);
             var id = _objectsToId.Count;
             _objectsToId.Add(data, id);
 
@@ -57,29 +53,29 @@ public class TransferBinaryWriter : BinaryWriter
         }
     }
 
-    public void WriteStringShared(string data)
+    public void WriteStringShared(string? data)
     {
         if (data is null)
         {
-            Write((byte)TransferObjectReferenceKind.Null);
+            Write((byte)BinaryTransferObjectReferenceKind.Null);
             return;
         }
 
         if (_objectsToId.TryGetValue(data, out var stringIndex))
         {
-            Write((byte)TransferObjectReferenceKind.Index);
-            Write((int)stringIndex);
+            Write((byte)BinaryTransferObjectReferenceKind.Index);
+            Write(stringIndex);
         }
         else
         {
-            Write((byte)TransferObjectReferenceKind.Data);
+            Write((byte)BinaryTransferObjectReferenceKind.Data);
             var id = _objectsToId.Count;
             _objectsToId.Add(data, id);
             Write(data);
         }
     }
 
-    public void WriteNullableStruct<TData>(TData? data) where TData : struct, ITransferable<TData>
+    public void WriteNullableStruct<TData>(TData? data) where TData : struct, IBinaryTransferable<TData>
     {
         if (data.HasValue)
         {
@@ -92,7 +88,7 @@ public class TransferBinaryWriter : BinaryWriter
         }
     }
 
-    public void WriteStructsFromList<TData>(List<TData> list) where TData : struct, ITransferable<TData>
+    public void WriteStructsFromList<TData>(List<TData> list) where TData : struct, IBinaryTransferable<TData>
     {
         Write(list.Count);
         foreach (var item in list)
@@ -101,7 +97,7 @@ public class TransferBinaryWriter : BinaryWriter
         }
     }
 
-    public void WriteObjectsFromList<TData>(List<TData> list) where TData : class, ITransferable<TData>, new()
+    public void WriteObjectsFromList<TData>(List<TData> list) where TData : class, IBinaryTransferable<TData>, new()
     {
         Write(list.Count);
         foreach (var item in list)
@@ -137,7 +133,7 @@ public class TransferBinaryWriter : BinaryWriter
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WriteNullable(string value)
+    public void WriteNullable(string? value)
     {
         if (value is null)
         {

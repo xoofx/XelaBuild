@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
 using Microsoft.Build.Framework;
-using Microsoft.Build.Tasks;
 using Mono.Options;
-using NuGet.Protocol.Core.Types;
 using XelaBuild.Core.Helpers;
 
 namespace XelaBuild.Core;
@@ -23,7 +18,15 @@ public class BuilderApp
     {
         var exeName = Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly()?.Location)?.ToLowerInvariant();
         bool showHelp = false;
-        var version = typeof(BuilderApp).Assembly.GetName().Version;
+
+        var assemblyInfoVersion = typeof(BuilderApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+        var version = assemblyInfoVersion?.InformationalVersion;
+        if (version is null)
+        {
+            var asmVersion = typeof(BuilderApp).Assembly.GetName().Version ?? new Version();
+            version = $"{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build}";
+        }
+
 
         var resolved = new Options();
 
@@ -31,13 +34,13 @@ public class BuilderApp
         var options = new OptionSet
             {
                 $"Copyright (C) {DateTime.Now.Year} Alexandre Mutel. All Rights Reserved",
-                $"{exeName} - Version: {version.Major}.{version.Minor}.{version.Build}",
+                $"{exeName} - Version: {version}",
                 _,
                 $"Usage: {exeName} [options]+ solution_file.sln",
                 _,
                 "## Options",
                 _,
-                {"v|verbosity=", "Set verbosity.", v=> resolved.Verbosity = TryParseEnum<LoggerVerbosity>(v, "verbosity")},
+                {"v|verbosity:", "Set verbosity.", v=> resolved.Verbosity = TryParseEnum<LoggerVerbosity>(v, "verbosity")},
                 {"h|help", "Show this help.", v=> showHelp = true},
                 _,
             };
@@ -108,6 +111,7 @@ public class BuilderApp
 
         var group = builder.CreateProjectGroup(ConfigurationHelper.Release());
 
+        // Load the state
         var state = group.Load();
 
         if (state.Status == ProjectGroupStatus.NoChanges)
@@ -118,6 +122,7 @@ public class BuilderApp
         if (state.Status == ProjectGroupStatus.Restore)
         {
             state = group.Restore();
+            // If we are stuck on restore, we had errors
             if (state.Status == ProjectGroupStatus.Restore)
             {
                 return false;
@@ -142,6 +147,7 @@ public class BuilderApp
         public Options()
         {
             Verbosity = LoggerVerbosity.Minimal;
+            SolutionPath = string.Empty;
         }
 
         public LoggerVerbosity Verbosity { get; set; }
@@ -151,10 +157,6 @@ public class BuilderApp
 
     private class BuilderException : Exception
     {
-        public BuilderException()
-        {
-        }
-
         public BuilderException(string message) : base(message)
         {
         }
@@ -164,6 +166,6 @@ public class BuilderApp
             AdditionalText = additionalText;
         }
 
-        public string AdditionalText { get; set; }
+        public string? AdditionalText { get; }
     }
 }

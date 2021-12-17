@@ -20,6 +20,7 @@ public record BuildConfiguration
         solutionFilePath = Path.Combine(Environment.CurrentDirectory, solutionFilePath);
         solutionFilePath = FileUtilities.NormalizePath(solutionFilePath);
         var rootFolder = Path.GetDirectoryName(solutionFilePath);
+        if (rootFolder is null) throw new ArgumentException($@"Invalid directory from solution path: {solutionFilePath}", nameof(solutionFilePath));
 
         var vsFolder = Path.Combine(rootFolder, ".vs");
         var vsFolderInfo = new DirectoryInfo(vsFolder);

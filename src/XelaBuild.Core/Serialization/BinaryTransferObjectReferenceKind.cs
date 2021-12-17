@@ -1,8 +1,8 @@
 ﻿namespace XelaBuild.Core.Serialization;
 
-internal enum TransferObjectReferenceKind : byte
+internal enum BinaryTransferObjectReferenceKind : byte
 {
+    Null = 0,
     Index = 1,
     Data = 2,
-    Null = 3,
 }

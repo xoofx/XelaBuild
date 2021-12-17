@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
 using XelaBuild.Core.Caching;
@@ -12,7 +11,7 @@ public class ProjectState
     internal ProjectState(ProjectGroup group)
     {
         Group = group;
-        ProjectStateHash = new ProjectStateHash();
+        CachedProject = new CachedProject();
     }
 
     public readonly ProjectGroup Group;
@@ -25,15 +24,13 @@ public class ProjectState
 
     public DateTime ProjectInstanceLastWriteTimeWhenRead { get; private set; }
 
-    public ProjectInstance ProjectInstance { get; private set; }
+    public ProjectInstance? ProjectInstance { get; private set; }
 
-    public ProjectGraphNode ProjectGraphNode;
+    public ProjectGraphNode? ProjectGraphNode;
 
-    public BuildResult LastResult;
+    public BuildResult? LastResult;
 
     public DateTime LastResultTime;
-
-    public ProjectStateHash ProjectStateHash { get; }
 
     public void InitializeFromProjectInstance(ProjectInstance instance, DateTime lastWriteTimeWhenRead)
     {
@@ -54,7 +51,7 @@ public class ProjectState
 
     private string GetSafeNonEmptyPropertyValue(string propertyName)
     {
-        var propertyValue = ProjectInstance.GetPropertyValue(propertyName);
+        var propertyValue = ProjectInstance?.GetPropertyValue(propertyName);
         if (string.IsNullOrEmpty(propertyValue))
         {
             throw new InvalidOperationException($"Unexpected error. The property `{propertyName}` is not expected to be null or empty");
@@ -223,61 +220,3 @@ public class ProjectState
     }
     */
 }
-
-public class ProjectStateHash
-{
-    public HashAndDateTime HashPackageReferences;
-    public HashAndDateTime HashProjectAndTargetFiles;
-    public HashAndDateTime HashCompileAndContentItems;
-    public HashAndDateTime HashProjectReferences;
-    public HashAndDateTime HashAssemblyReferences;
-    public HashAndDateTime HashGlobal;
-
-    public void Update()
-    {
-        var hasher = new SpookyHash();
-        hasher.Init();
-
-        var maxModifiedTime = DateTime.MinValue;
-        HashPackageReferences.UpdateToHash(ref hasher, ref maxModifiedTime);
-        HashProjectAndTargetFiles.UpdateToHash(ref hasher, ref maxModifiedTime);
-        HashCompileAndContentItems.UpdateToHash(ref hasher, ref maxModifiedTime);
-        HashProjectReferences.UpdateToHash(ref hasher, ref maxModifiedTime);
-        HashAssemblyReferences.UpdateToHash(ref hasher, ref maxModifiedTime);
-
-        hasher.Final(out ulong hash1, out ulong hash2);
-        HashGlobal = new HashAndDateTime(hash1, hash2, maxModifiedTime);
-    }
-}
-
-
-public record HashAndDateTime(ulong Hash1, ulong Hash2, DateTime MaxModifiedTime)
-{
-    public void Write(BinaryWriter writer)
-    {
-        writer.Write(Hash1);
-        writer.Write(Hash2);
-        writer.Write(MaxModifiedTime.Ticks);
-    }
-
-    public HashAndDateTime Combine(HashAndDateTime hashAndDateTime)
-    {
-        return new HashAndDateTime(Hash1 ^ hashAndDateTime.Hash1, Hash2 ^ hashAndDateTime.Hash2,
-            MaxModifiedTime > hashAndDateTime.MaxModifiedTime ? MaxModifiedTime : hashAndDateTime.MaxModifiedTime);
-    }
-
-    internal void UpdateToHash(ref SpookyHash hasher, ref DateTime maxModifiedTime)
-    {
-        hasher.Update(Hash1);
-        hasher.Update(Hash2);
-        hasher.Update(MaxModifiedTime.Ticks);
-        if (MaxModifiedTime > maxModifiedTime)
-        {
-            maxModifiedTime = MaxModifiedTime;
-        }
-    }
-}
-
-
-
-

@@ -7,7 +7,7 @@ using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
+public class CachedAssemblyGroup : BinaryRootTransferable<CachedAssemblyGroup>
 {
     private const string FrameworkPrefix = "fwk-";
     private const string PackagePrefix = "pkg-";
@@ -16,16 +16,13 @@ public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
     /// <summary>
     /// CAGF: Cached Assembly Group File
     /// </summary>
-    public static readonly CachedMagicVersion CurrentMagicVersion = new("CAGF", 1, 0);
+    public static readonly MagicVersion CurrentMagicVersion = new("CAGF", 1, 0);
 
     public CachedAssemblyGroup()
     {
         MagicVersion = CurrentMagicVersion;
         Items = new List<CachedFileReference>();
-        MaxModifiedTime = DateTime.MinValue;
     }
-    public CachedMagicVersion MagicVersion { get; set; }
-    public DateTime LastWriteTimeWhenRead { get; set; }
 
     public ulong Hash1;
 
@@ -37,12 +34,12 @@ public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
 
     public static CachedAssemblyGroup ReadFromFile(string filePath)
     {
-        return CachedBinaryHelper.ReadFromFile<CachedAssemblyGroup>(filePath);
+        return BinaryTransfer.ReadFromFile<CachedAssemblyGroup>(filePath);
     }
 
     public static CachedAssemblyGroup ReadFromStream(Stream stream)
     {
-        return CachedBinaryHelper.ReadFromStream<CachedAssemblyGroup>(stream);
+        return BinaryTransfer.ReadFromStream<CachedAssemblyGroup>(stream);
     }
 
     public static bool ShouldReload(string filePath)
@@ -111,18 +108,22 @@ public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
             return true;
         }
 
-        CachedBinaryHelper.WriteToFile(filePath, this);
+        BinaryTransfer.WriteToFile(filePath, this);
         fileInfo = FileUtilities.GetFileInfoNoThrow(filePath);
-        lastWriteTime = fileInfo.LastWriteTimeUtc;
+        if (fileInfo != null)
+        {
+            fileInfo.LastWriteTimeUtc = MaxModifiedTime;
+        }
+        lastWriteTime = MaxModifiedTime;
         return true;
     }
 
     public void WriteToStream(Stream stream)
     {
-        CachedBinaryHelper.WriteToStream(stream, this);
+        BinaryTransfer.WriteToStream(stream, this);
     }
 
-    public CachedAssemblyGroup Read(TransferBinaryReader reader)
+    public override CachedAssemblyGroup Read(BinaryTransferReader reader)
     {
         Hash1 = reader.ReadUInt64();
         Hash2 = reader.ReadUInt64();
@@ -131,7 +132,7 @@ public class CachedAssemblyGroup : IVersionedTransferable<CachedAssemblyGroup>
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public override void Write(BinaryTransferWriter writer)
     {
         writer.Write(Hash1);
         writer.Write(Hash2);
@@ -151,7 +152,7 @@ public record struct CachedAssemblyGroupKey(CachedAssemblyGroupKind GroupKind, s
         return string.Compare(Version, other.Version, StringComparison.Ordinal);
     }
 
-    public int CompareTo(object obj)
+    public int CompareTo(object? obj)
     {
         if (ReferenceEquals(null, obj)) return 1;
         return obj is CachedAssemblyGroupKey other ? CompareTo(other) : throw new ArgumentException($"Object must be of type {nameof(CachedAssemblyGroupKey)}");

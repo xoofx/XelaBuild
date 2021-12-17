@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Xml;
 using Microsoft.Build.Construction;
@@ -21,7 +21,6 @@ public partial class ProjectGroup
     private void InitializeGraphFromCachedProjectGroup()
     {
         _cachedProjectGroup = CachedProjectGroup.ReadFromFile(IndexCacheFilePath);
-
 
         var rootProject = _cachedProjectGroup.Projects.First(x => x.IsRoot);
         
@@ -71,13 +70,16 @@ public partial class ProjectGroup
         ProjectState projectState;
         lock (_projectStates)
         {
+#pragma warning disable CS8600
             if (!_projectStates.TryGetValue(projectPath, out projectState))
             {
                 projectState = new ProjectState(this);
                 _projectStates[projectPath] = projectState;
             }
+#pragma warning restore CS8600
         }
 
+        Debug.Assert(_cachedProjectGroup != null, nameof(_cachedProjectGroup) + " != null");
         var cachedProject = _cachedProjectGroup.Projects.First(x => x.File.FullPath == projectPath);
         var xml = ProjectRootElement.Create(new XmlTextReader(new StringReader("<Project></Project>")), projectCollection);
         xml.FullPath = cachedProject.File.FullPath;
@@ -93,7 +95,10 @@ public partial class ProjectGroup
         instance.SetProperty("XelaBuildResultCacheFile", cachedProject.BuildResultCacheFile.FullPath);
         foreach (var projectRef in cachedProject.ProjectReferences)
         {
-            instance.AddItem("ProjectReference", projectRef.Project.File.FullPath);
+            if (projectRef.Project is not null)
+            {
+                instance.AddItem("ProjectReference", projectRef.Project.File.FullPath);
+            }
         }
         foreach (var projectRefTarget in cachedProject.ProjectReferenceTargets)
         {
@@ -114,7 +119,7 @@ public partial class ProjectGroup
         //var instance = projectState.ProjectInstance;
         //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
 
-        return projectState.ProjectInstance;
+        return instance;
     }
     
     private void WriteCachedProjectGroupFromProjectInstance()
@@ -127,6 +132,7 @@ public partial class ProjectGroup
         cachedProjectGroup.SolutionFile.LastWriteTime = _solutionLastWriteTimeWhenRead;
 
         // Reinitialize CachedProject instances, as they need to be reference-able up-front
+        Debug.Assert(_projectGraph != null, nameof(_projectGraph) + " != null");
         foreach (var project in _projectGraph.ProjectNodesTopologicallySorted)
         {
             this.FindProjectState(project).CachedProject = new CachedProject();
@@ -178,6 +184,7 @@ public partial class ProjectGroup
     private CachedProject CreateCachedProject(ProjectState state, CachedContext context)
     {
         var node = state.ProjectGraphNode;
+        if (node == null) throw new InvalidOperationException("ProjectGraphNode cannot be null at this stage");
         var cachedProject = state.CachedProject;
         var project = node.ProjectInstance;
 
@@ -275,7 +282,7 @@ public partial class ProjectGroup
         }
     }
 
-    private static string InternalizeString(string data)
+    private static string? InternalizeString(string? data)
     {
         return data is null ? null : string.Intern(data);
     }
@@ -287,8 +294,8 @@ public partial class ProjectGroup
         {
             var cachedProjectReferenceTarget = new CachedProjectReferenceTargets()
             {
-                Include = InternalizeString(projectReferenceTarget.EvaluatedInclude),
-                Targets = InternalizeString(projectReferenceTarget.GetMetadataValue("Targets")),
+                Include = InternalizeString(projectReferenceTarget.EvaluatedInclude) ?? string.Empty,
+                Targets = InternalizeString(projectReferenceTarget.GetMetadataValue("Targets")) ?? string.Empty,
                 OuterBuild = string.Equals(projectReferenceTarget.GetMetadataValue("OuterBuild"), "true", StringComparison.OrdinalIgnoreCase) ? true : null,
             };
             cachedProjectReferenceTargetsList.Add(cachedProjectReferenceTarget);
@@ -311,7 +318,7 @@ public partial class ProjectGroup
         // Scan the project elements in reverse order and build globbing information for each include element.
         // Based on the fact that relevant removes for a particular include element (xml element A) consist of:
         // - all the removes seen by the next include statement of A's type (xml element B which appears after A in file order)
-        // - new removes between A and B (removes that apply to A but not to B. Spacially, these are placed between A's element and B's element)
+        // - new removes between A and B (removes that apply to A but not to B. Specially, these are placed between A's element and B's element)
 
         // Example:
         // 1. <I Include="A"/>
@@ -337,11 +344,7 @@ public partial class ProjectGroup
             if (!string.IsNullOrEmpty(itemElement.Include))
             {
                 var globResult = BuildGlobResultFromIncludeItem(project, itemElement, removeElementCache);
-
-                if (globResult != null)
-                {
-                    globs.Add(globResult);
-                }
+                globs.Add(globResult);
             }
             else if (!string.IsNullOrEmpty(itemElement.Remove))
             {
@@ -354,9 +357,9 @@ public partial class ProjectGroup
     {
         var globItem = new CachedGlobItem();
 
-        globItem.ItemType = InternalizeString(itemElement.ItemType);
+        globItem.ItemType = InternalizeString(itemElement.ItemType) ?? string.Empty;
 
-        globItem.Include = globItem.Include != null ? $"{globItem.Include};{project.ExpandString(itemElement.Include)}" : project.ExpandString(itemElement.Include);
+        globItem.Include = globItem.Include.Length != 0 ? $"{globItem.Include};{project.ExpandString(itemElement.Include)}" : project.ExpandString(itemElement.Include) ?? string.Empty;
 
         if (!string.IsNullOrEmpty(itemElement.Exclude))
         {
@@ -393,10 +396,10 @@ public partial class ProjectGroup
             cumulativeRemoveElementData = new List<string>();
             removeElementCache[itemElement.ItemType] = cumulativeRemoveElementData;
         }
-        cumulativeRemoveElementData.Add(project.ExpandString(itemElement.Include));
+        cumulativeRemoveElementData.Add(project.ExpandString(itemElement.Remove)!);
     }
 
-    private static bool HasWildCards(string text)
+    private static bool HasWildCards(string? text)
     {
         return text != null && text.Contains('*');
     }

@@ -28,9 +28,12 @@ public class XelaBuildInputsCacheBuilder : Task
 
     [Required]
     public ITaskItem[] Analyzers { get; set; }
-        
+
     [Required]
     public string OutputCacheFile { get; set; }
+
+    [Output]
+    public ITaskItem[] IntermediateInputs { get; set; }
 
     public override bool Execute()
     {
@@ -104,6 +107,7 @@ public class XelaBuildInputsCacheBuilder : Task
         }
 
         // Collect all assembly references
+        var intermediateInputs = new List<ITaskItem>();
         foreach (var pair in map.OrderBy(x => x.Key))
         {
             var key = pair.Key;
@@ -112,9 +116,9 @@ public class XelaBuildInputsCacheBuilder : Task
             var filePath = group.GetFilePath(key, OutputCacheFolder);
             try
             {
-                    
                 var written = group.TryWriteToFile(filePath, out var lastWriteTime);
                 cachedBuildInput.Assemblies.Add(new CachedFileReference(filePath, lastWriteTime));
+                intermediateInputs.Add(new TaskItem(filePath));
             }
             catch (Exception ex)
             {
@@ -123,6 +127,7 @@ public class XelaBuildInputsCacheBuilder : Task
             }
         }
 
+        IntermediateInputs = intermediateInputs.ToArray();
         cachedBuildInput.WriteToFile(OutputCacheFile);
         return !hasErrors;
     }

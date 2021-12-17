@@ -6,23 +6,21 @@ using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public class CachedBuildInputs : IVersionedTransferable<CachedBuildInputs>
+public class CachedBuildInputs : BinaryRootTransferable<CachedBuildInputs>
 {
     /// <summary>
     /// CBIF: Cached Build Inputs File
     /// </summary>
-    public static readonly CachedMagicVersion CurrentMagicVersion = new("CBIF", 1, 0);
+    public static readonly MagicVersion CurrentMagicVersion = new("CBIF", 1, 0);
 
     public CachedBuildInputs()
     {
+        ProjectFolder = string.Empty;
         MagicVersion = CurrentMagicVersion;
         InputItems = new List<CachedFileReference>();
         Assemblies = new List<CachedFileReference>();
     }
     
-    public CachedMagicVersion MagicVersion { get; set; }
-    public DateTime LastWriteTimeWhenRead { get; set; }
-
     public string ProjectFolder { get; set; }
 
     public List<CachedFileReference> InputItems { get; }
@@ -32,15 +30,15 @@ public class CachedBuildInputs : IVersionedTransferable<CachedBuildInputs>
 
     public static CachedBuildInputs ReadFromFile(string filePath)
     {
-        return CachedBinaryHelper.ReadFromFile<CachedBuildInputs>(filePath);
+        return BinaryTransfer.ReadFromFile<CachedBuildInputs>(filePath);
     }
 
     public void WriteToFile(string filePath)
     {
-        CachedBinaryHelper.WriteToFile(filePath, this);
+        BinaryTransfer.WriteToFile(filePath, this);
     }
 
-    public CachedBuildInputs Read(TransferBinaryReader reader)
+    public override CachedBuildInputs Read(BinaryTransferReader reader)
     {
         ProjectFolder = reader.ReadString();
         reader.ReadStructsToList(InputItems);
@@ -48,7 +46,7 @@ public class CachedBuildInputs : IVersionedTransferable<CachedBuildInputs>
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public override void Write(BinaryTransferWriter writer)
     {
         writer.Write(ProjectFolder);
         writer.WriteStructsFromList(InputItems);

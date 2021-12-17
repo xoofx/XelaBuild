@@ -1,54 +1,51 @@
 ﻿using System;
-using System.Buffers;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace XelaBuild.Core.Serialization;
 
-public class TransferBinaryReader : BinaryReader
+public class BinaryTransferReader : BinaryReader
 {
     private readonly List<object> _objects;
 
-    public TransferBinaryReader(Stream input) : this(input, Encoding.UTF8)
+    public BinaryTransferReader(Stream input) : this(input, Encoding.UTF8)
     {
     }
 
-    public TransferBinaryReader(Stream input, Encoding encoding) : this(input, encoding, false)
+    public BinaryTransferReader(Stream input, Encoding encoding) : this(input, encoding, false)
     {
     }
 
-    public TransferBinaryReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
+    public BinaryTransferReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
     {
         _objects = new();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TData ReadStruct<TData>(TData data) where TData : struct, ITransferable<TData>
+    public TData ReadStruct<TData>(TData data) where TData : struct, IBinaryTransferable<TData>
     {
         return data.Read(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TData ReadObject<TData>(TData data) where TData : class, ITransferable<TData>
+    public TData? ReadObject<TData>(TData data) where TData : class, IBinaryTransferable<TData>
     {
-        var kind = (TransferObjectReferenceKind)ReadByte();
+        var kind = (BinaryTransferObjectReferenceKind)ReadByte();
         switch (kind)
         {
-            case TransferObjectReferenceKind.Index:
+            case BinaryTransferObjectReferenceKind.Index:
             {
                 var id = ReadInt32();
                 return (TData)_objects[id];
             }
-            case TransferObjectReferenceKind.Data:
+            case BinaryTransferObjectReferenceKind.Data:
             {
                 _objects.Add(data);
                 return data.Read(this);
             }
-            case TransferObjectReferenceKind.Null:
+            case BinaryTransferObjectReferenceKind.Null:
                 return null;
             default:
                 throw new InvalidDataException($"Invalid reference kind {kind} to a {data}. Expecting only 1 or 2.");
@@ -56,23 +53,23 @@ public class TransferBinaryReader : BinaryReader
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public string ReadStringShared()
+    public string? ReadStringShared()
     {
-        var kind = (TransferObjectReferenceKind)ReadByte();
+        var kind = (BinaryTransferObjectReferenceKind)ReadByte();
         switch (kind)
         {
-            case TransferObjectReferenceKind.Index:
+            case BinaryTransferObjectReferenceKind.Index:
             {
                 var id = ReadInt32();
                 return (string)_objects[id];
             }
-            case TransferObjectReferenceKind.Data:
+            case BinaryTransferObjectReferenceKind.Data:
             {
                 var data = ReadString();
                 _objects.Add(data);
                 return data;
             }
-            case TransferObjectReferenceKind.Null:
+            case BinaryTransferObjectReferenceKind.Null:
                 return null;
             default:
                 throw new InvalidDataException($"Invalid reference kind {kind} to a string. Expecting only 1 or 2.");
@@ -81,18 +78,12 @@ public class TransferBinaryReader : BinaryReader
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TData? ReadNullableStruct<TData>(TData data) where TData : struct, ITransferable<TData>
+    public TData? ReadNullableStruct<TData>(TData data) where TData : struct, IBinaryTransferable<TData>
     {
         return ReadNullability() ? null : data.Read(this);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TData ReadNullableObject<TData>(TData transferable) where TData : class, ITransferable<TData>
-    {
-        return ReadNullability() ? null: transferable.Read(this);
-    }
-
-    public void ReadStructsToList<TData>(List<TData> list) where TData : struct, ITransferable<TData>
+    public void ReadStructsToList<TData>(List<TData> list) where TData : struct, IBinaryTransferable<TData>
     {
         var length = ReadInt32();
         list.Capacity = length;
@@ -104,7 +95,7 @@ public class TransferBinaryReader : BinaryReader
         }
     }
 
-    public void ReadObjectsToList<TData>(List<TData> list) where TData : class, ITransferable<TData>, new()
+    public void ReadObjectsToList<TData>(List<TData> list) where TData : class, IBinaryTransferable<TData>, new()
     {
         var length = ReadInt32();
         list.Capacity = length;
@@ -112,7 +103,9 @@ public class TransferBinaryReader : BinaryReader
         {
             var item = new TData();
             item = ReadObject(item);
+#pragma warning disable CS8604
             list.Add(item);
+#pragma warning restore CS8604
         }
     }
 
@@ -137,7 +130,7 @@ public class TransferBinaryReader : BinaryReader
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public string ReadNullableString()
+    public string? ReadNullableString()
     {
         return ReadNullability() ? null : ReadString();
     }

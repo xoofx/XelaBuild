@@ -8,7 +8,7 @@ internal class FileUtilities
 {
     public static void EnsureFolderForFilePath(string path)
     {
-        var directory = Path.GetDirectoryName(path);
+        var directory = Path.GetDirectoryName(NormalizePath(path));
         if (directory != null && !Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
@@ -38,7 +38,7 @@ internal class FileUtilities
     /// </summary>
     /// <param name="filePath"></param>
     /// <returns>FileInfo around path if it is an existing /file/, else null</returns>
-    public static FileInfo GetFileInfoNoThrow(string filePath)
+    public static FileInfo? GetFileInfoNoThrow(string filePath)
     {
         FileInfo fileInfo;
 

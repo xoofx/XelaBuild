@@ -4,9 +4,9 @@ using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public record CachedImportFileReference(string FullPath, DateTime LastWriteTime) : ITransferable<CachedImportFileReference>
+public record CachedImportFileReference(string FullPath, DateTime LastWriteTime) : IBinaryTransferable<CachedImportFileReference>
 {
-    public CachedImportFileReference() : this(null, DateTime.MinValue)
+    public CachedImportFileReference() : this(string.Empty, DateTime.MinValue)
     {
     }
 
@@ -15,7 +15,7 @@ public record CachedImportFileReference(string FullPath, DateTime LastWriteTime)
     public DateTime LastWriteTime { get; set; } = LastWriteTime;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public CachedImportFileReference Read(TransferBinaryReader reader)
+    public CachedImportFileReference Read(BinaryTransferReader reader)
     {
         FullPath = reader.ReadString();
         LastWriteTime = reader.ReadDateTime();
@@ -23,7 +23,7 @@ public record CachedImportFileReference(string FullPath, DateTime LastWriteTime)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.Write(FullPath);
         writer.Write(LastWriteTime);

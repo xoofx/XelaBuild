@@ -1,27 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public class CachedProjectGroup : IVersionedTransferable<CachedProjectGroup>
+public class CachedProjectGroup : BinaryRootTransferable<CachedProjectGroup>
 {
     /// <summary>
     /// Cached Project Group File
     /// </summary>
-    public static readonly CachedMagicVersion CurrentVersion = new("CPGF", 1, 0);
+    public static readonly MagicVersion CurrentVersion = new("CPGF", 1, 0);
 
     public CachedProjectGroup()
     {
         MagicVersion = CurrentVersion;
         Projects = new List<CachedProject>();
     }
-
-    public CachedMagicVersion MagicVersion { get; set; }
-    public DateTime LastWriteTimeWhenRead { get; set; }
 
     public CachedFileReference SolutionFile;
 
@@ -32,22 +27,22 @@ public class CachedProjectGroup : IVersionedTransferable<CachedProjectGroup>
 
     public static CachedProjectGroup ReadFromFile(string filePath)
     {
-        return CachedBinaryHelper.ReadFromFile<CachedProjectGroup>(filePath);
+        return BinaryTransfer.ReadFromFile<CachedProjectGroup>(filePath);
     }
 
     public void WriteToFile(string filePath)
     {
-        CachedBinaryHelper.WriteToFile(filePath, this);
+        BinaryTransfer.WriteToFile(filePath, this);
     }
 
-    public CachedProjectGroup Read(TransferBinaryReader reader)
+    public override CachedProjectGroup Read(BinaryTransferReader reader)
     {
         SolutionFile.Read(reader);
         reader.ReadObjectsToList(Projects);
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public override void Write(BinaryTransferWriter writer)
     {
         SolutionFile.Write(writer);
         writer.WriteObjectsFromList(Projects);
@@ -56,14 +51,18 @@ public class CachedProjectGroup : IVersionedTransferable<CachedProjectGroup>
 
 
 [DebuggerDisplay("{ToDebuggerDisplay(),nq}")]
-public class CachedProject : ITransferable<CachedProject>
+public class CachedProject : IBinaryTransferable<CachedProject>
 {
     public CachedProject()
     {
+        ProjectFolder = string.Empty;
+        File = CachedFileReference.Empty;
+        Globs = new List<CachedGlobItem>();
+        ProjectAssetsCachedFile = CachedFileReference.Empty;
+        BuildInputsCacheFile = CachedFileReference.Empty;
+        BuildResultCacheFile = CachedFileReference.Empty;
         ProjectReferences = new List<CachedProjectReference>();
         Imports = new List<CachedImportFileReference>();
-        Globs = new List<CachedGlobItem>();
-        //Properties = new List<CachedProperty>();
         ProjectReferenceTargets = new List<CachedProjectReferenceTargets>();
         ProjectDependencies = new List<CachedProject>();
     }
@@ -72,7 +71,6 @@ public class CachedProject : ITransferable<CachedProject>
     public string ProjectFolder { get; set; }
     public CachedFileReference File;
     public List<CachedGlobItem> Globs { get; }
-    //public List<CachedProperty> Properties { get; }
     public bool IsRestoreSuccessful { get; set; }
     public CachedFileReference ProjectAssetsCachedFile;
     public CachedFileReference BuildInputsCacheFile;
@@ -82,13 +80,12 @@ public class CachedProject : ITransferable<CachedProject>
     public List<CachedImportFileReference> Imports { get; }
     public List<CachedProjectReferenceTargets> ProjectReferenceTargets { get; }
     
-    public CachedProject Read(TransferBinaryReader reader)
+    public CachedProject Read(BinaryTransferReader reader)
     {
         IsRoot = reader.ReadBoolean();
         ProjectFolder = reader.ReadString();
         File.Read(reader);
         reader.ReadObjectsToList(this.Globs);
-        //reader.ReadStructsToList(this.Properties);
         IsRestoreSuccessful = reader.ReadBoolean();
 
         CachedFileReference cachedFileReference = default;
@@ -103,13 +100,12 @@ public class CachedProject : ITransferable<CachedProject>
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.Write(this.IsRoot);
         writer.Write(ProjectFolder);
         writer.WriteStruct(File);
         writer.WriteObjectsFromList(Globs);
-        //writer.WriteStructsFromList(Properties);
         writer.Write(IsRestoreSuccessful);
 
         writer.WriteStruct(ProjectAssetsCachedFile);
@@ -128,37 +124,34 @@ public class CachedProject : ITransferable<CachedProject>
     }
 }
 
-public record struct CachedProperty(string Name, string Value) : ITransferable<CachedProperty>
+public record struct CachedProperty(string Name, string Value) : IBinaryTransferable<CachedProperty>
 {
-    public CachedProperty Read(TransferBinaryReader reader)
+    public CachedProperty Read(BinaryTransferReader reader)
     {
-        Name = reader.ReadStringShared();
-        Value = reader.ReadStringShared();
+        Name = reader.ReadStringShared() ?? string.Empty;
+        Value = reader.ReadStringShared() ?? string.Empty;
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.WriteStringShared(Name);
         writer.WriteStringShared(Value);
     }
 }
 
-
-
-public class CachedProjectReference : ITransferable<CachedProjectReference>
+public class CachedProjectReference : IBinaryTransferable<CachedProjectReference>
 {
-    public CachedProject Project { get; set; }
+    public CachedProject? Project { get; set; }
+    public string? GlobalPropertiesToRemove { get; set; }
+    public string? SetConfiguration { get; set; }
+    public string? SetPlatform { get; set; }
+    public string? SetTargetFramework { get; set; }
+    public string? Properties { get; set; }
+    public string? AdditionalProperties { get; set; }
+    public string? UndefinedProperties { get; set; }
 
-    public string GlobalPropertiesToRemove { get; set; }
-    public string SetConfiguration { get; set; }
-    public string SetPlatform { get; set; }
-    public string SetTargetFramework { get; set; }
-    public string Properties { get; set; }
-    public string AdditionalProperties { get; set; }
-    public string UndefinedProperties { get; set; }
-
-    public CachedProjectReference Read(TransferBinaryReader reader)
+    public CachedProjectReference Read(BinaryTransferReader reader)
     {
         Project = reader.ReadObject(new CachedProject());
         GlobalPropertiesToRemove = reader.ReadStringShared();
@@ -171,7 +164,7 @@ public class CachedProjectReference : ITransferable<CachedProjectReference>
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.WriteObject(Project);
         writer.WriteStringShared(GlobalPropertiesToRemove);
@@ -184,23 +177,29 @@ public class CachedProjectReference : ITransferable<CachedProjectReference>
     }
 }
 
-public class CachedProjectReferenceTargets : ITransferable<CachedProjectReferenceTargets>
+public class CachedProjectReferenceTargets : IBinaryTransferable<CachedProjectReferenceTargets>
 {
+    public CachedProjectReferenceTargets()
+    {
+        Include = string.Empty;
+        Targets = string.Empty;
+    }
+
     public string Include { get; set; }
 
     public string Targets { get; set; }
 
     public bool? OuterBuild { get; set; }
 
-    public CachedProjectReferenceTargets Read(TransferBinaryReader reader)
+    public CachedProjectReferenceTargets Read(BinaryTransferReader reader)
     {
-        Include = reader.ReadStringShared();
-        Targets = reader.ReadStringShared();
+        Include = reader.ReadStringShared() ?? string.Empty;
+        Targets = reader.ReadStringShared() ?? string.Empty;
         OuterBuild = reader.ReadNullableBoolean();
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.WriteStringShared(Include);
         writer.WriteStringShared(Targets);
@@ -208,26 +207,32 @@ public class CachedProjectReferenceTargets : ITransferable<CachedProjectReferenc
     }
 }
 
-public class CachedGlobItem : ITransferable<CachedGlobItem>
+public class CachedGlobItem : IBinaryTransferable<CachedGlobItem>
 {
+    public CachedGlobItem()
+    {
+        ItemType = string.Empty;
+        Include = string.Empty;
+    }
+
     public string ItemType { get; set; }
 
     public string Include { get; set; }
 
-    public string Remove { get; set; }
+    public string? Remove { get; set; }
 
-    public string Exclude { get; set; }
+    public string? Exclude { get; set; }
 
-    public CachedGlobItem Read(TransferBinaryReader reader)
+    public CachedGlobItem Read(BinaryTransferReader reader)
     {
-        ItemType = reader.ReadStringShared();
-        Include = reader.ReadStringShared();
+        ItemType = reader.ReadStringShared() ?? string.Empty;
+        Include = reader.ReadStringShared() ?? string.Empty;
         Remove = reader.ReadStringShared();
         Exclude = reader.ReadStringShared();
         return this;
     }
 
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.WriteStringShared(ItemType);
         writer.WriteStringShared(Include);
@@ -235,5 +240,3 @@ public class CachedGlobItem : ITransferable<CachedGlobItem>
         writer.WriteStringShared(Exclude);
     }
 }
-
-

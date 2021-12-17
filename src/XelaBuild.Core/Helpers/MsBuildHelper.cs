@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using Microsoft.Build.Locator;
 
 namespace XelaBuild.Core.Helpers;
@@ -18,7 +16,8 @@ public static class MsBuildHelper
     public static void RegisterCustomMsBuild()
     {
         // "C:\Program Files\dotnet\dotnet.exe"
-        var folder = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+        var processFileName = Process.GetCurrentProcess().MainModule?.FileName;
+        var folder = processFileName is null ? null : Path.GetDirectoryName(processFileName);
         var dotnetFolder = GetDotnet6Folder(folder);
 
         // Otherwise try to get it from ProgramFiles
@@ -41,7 +40,7 @@ public static class MsBuildHelper
         }
 
         Environment.SetEnvironmentVariable("MSBuildEnableWorkloadResolver", "false");
-        var msbuildPath = Path.GetFullPath(Path.GetDirectoryName(typeof(MsBuildHelper).Assembly.Location));
+        var msbuildPath = Path.GetFullPath(AppContext.BaseDirectory);
         foreach (var keyValuePair in new Dictionary<string, string>()
                  {
                      ["MSBUILD_EXE_PATH"] = Path.Combine(msbuildPath, "MSBuild.dll"),
@@ -57,7 +56,7 @@ public static class MsBuildHelper
             msbuildPath,
         });
     }
-    private static string GetDotnet6Folder(string dotnetRoot)
+    private static string? GetDotnet6Folder(string? dotnetRoot)
     {
         if (dotnetRoot == null) return null;
         var folder = new DirectoryInfo(Path.Combine(dotnetRoot, "sdk", "6.0.100"));

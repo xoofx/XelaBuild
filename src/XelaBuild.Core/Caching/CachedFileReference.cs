@@ -1,16 +1,15 @@
 ﻿using System;
-using System.Buffers;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using XelaBuild.Core.Serialization;
 
 namespace XelaBuild.Core.Caching;
 
-public record struct CachedFileReference(string FullPath, DateTime LastWriteTime) : ITransferable<CachedFileReference>
+public record struct CachedFileReference(string FullPath, DateTime LastWriteTime) : IBinaryTransferable<CachedFileReference>
 {
+    public static readonly CachedFileReference Empty = new CachedFileReference(string.Empty, DateTime.MinValue);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public CachedFileReference Read(TransferBinaryReader reader)
+    public CachedFileReference Read(BinaryTransferReader reader)
     {
         FullPath = reader.ReadString();
         LastWriteTime = reader.ReadDateTime();
@@ -18,7 +17,7 @@ public record struct CachedFileReference(string FullPath, DateTime LastWriteTime
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Write(TransferBinaryWriter writer)
+    public void Write(BinaryTransferWriter writer)
     {
         writer.Write(FullPath);
         writer.Write(LastWriteTime);

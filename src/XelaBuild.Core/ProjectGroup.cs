@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -23,10 +24,9 @@ public partial class ProjectGroup : IDisposable
     private readonly ProjectCollection _projectCollection;
     private readonly Builder _builder;
     private readonly Dictionary<string, ProjectState> _projectStates;
-    private readonly string _indexCacheFilePath;
-    private ProjectGraph _projectGraph;
+    private ProjectGraph? _projectGraph;
     private DateTime _solutionLastWriteTimeWhenRead;
-    private CachedProjectGroup _cachedProjectGroup;
+    private CachedProjectGroup? _cachedProjectGroup;
 
     internal ProjectGroup(Builder builder, IReadOnlyDictionary<string, string> globalProperties)
     {
@@ -35,9 +35,7 @@ public partial class ProjectGroup : IDisposable
 
         var properties = new Dictionary<string, string>(globalProperties)
         {
-            ["UnityBuildServer"] = "true",
-            ["IsGraphBuild"] = "true", // Make this upfront to include it in the cache file names
-            //["RestoreRecursive"] = "false",
+            ["IsGraphBuild"] = "true",
         };
 
         _projectStates = new Dictionary<string, ProjectState>();
@@ -45,7 +43,7 @@ public partial class ProjectGroup : IDisposable
         _builder = builder;
 
         var hashPostFix = HashHelper.Hash128(properties);
-        _indexCacheFilePath = Path.Combine(_builder.Config.GlobalCacheFolder, $"{properties["Configuration"]}-{properties["Platform"]}-index-{hashPostFix}.cache");
+        IndexCacheFilePath = Path.Combine(_builder.Config.GlobalCacheFolder, $"{properties["Configuration"]}-{properties["Platform"]}-index-{hashPostFix}.cache");
     }
 
     public int Count => _projectCollection.LoadedProjects.Count;
@@ -54,12 +52,13 @@ public partial class ProjectGroup : IDisposable
 
     public ProjectCollection ProjectCollection => _projectCollection;
 
-    public ProjectGraph ProjectGraph => _projectGraph;
+    public ProjectGraph? ProjectGraph => _projectGraph;
 
     public IEnumerable<ProjectState> Projects
     {
         get
         {
+            if (_projectGraph is null) yield break;
             foreach (var projectNode in _projectGraph.ProjectNodesTopologicallySorted)
             {
                 yield return this.FindProjectState(projectNode);
@@ -67,12 +66,15 @@ public partial class ProjectGroup : IDisposable
         }
     }
 
-    public string IndexCacheFilePath => _indexCacheFilePath;
+    public string IndexCacheFilePath { get; }
 
     public ProjectState FindProjectState(string projectPath)
     {
         if (projectPath == null) throw new ArgumentNullException(nameof(projectPath));
-        _projectStates.TryGetValue(projectPath, out var projectState);
+        if (!_projectStates.TryGetValue(projectPath, out var projectState))
+        {
+            throw new InvalidOperationException($"Unable to find project from state: {projectState}");
+        }
         return projectState;
     }
 
@@ -86,24 +88,16 @@ public partial class ProjectGroup : IDisposable
 
         // If the cache file does not exists or the solution changed
         // we need to reload it entirely
-        //var indexCacheFileInfo = FileUtilities.GetFileInfoNoThrow(IndexCacheFilePath);
-        //if (indexCacheFileInfo == null || _solutionLastWriteTimeWhenRead > indexCacheFileInfo.LastWriteTimeUtc)
-        //{
-        //    // Delete the previous cache file if we need to recompute it anyway
-        //    if (indexCacheFileInfo != null && indexCacheFileInfo.Exists)
-        //    {
-        //        indexCacheFileInfo.Delete();
-        //    }
-        //    return new ProjectGroupState(ProjectGroupStatus.Restore);
-        //}
-
-        // Here the cache file exists, we can load it.
-        // var cachedProjectGroup = CachedProjectGroup.ReadFromFile(IndexCacheFilePath);
-
-        //InitializeFromSolution();
-        //WriteCachedProjectGroupFromProjectInstance();
-
-        //_builder.Restore(this);
+        var indexCacheFileInfo = FileUtilities.GetFileInfoNoThrow(IndexCacheFilePath);
+        if (indexCacheFileInfo == null || _solutionLastWriteTimeWhenRead > indexCacheFileInfo.LastWriteTimeUtc)
+        {
+            // Delete the previous cache file if we need to recompute it anyway
+            if (indexCacheFileInfo != null && indexCacheFileInfo.Exists)
+            {
+                indexCacheFileInfo.Delete();
+            }
+            return new ProjectGroupState(ProjectGroupStatus.Restore);
+        }
 
         InitializeGraphFromCachedProjectGroup();
         
@@ -128,6 +122,7 @@ public partial class ProjectGroup : IDisposable
         {
             state = new ProjectGroupState(ProjectGroupStatus.Build);
             InitializeFromSolution();
+            WriteCachedProjectGroupFromProjectInstance();
         }
         else
         {
@@ -192,26 +187,27 @@ public partial class ProjectGroup : IDisposable
         }
     }
 
-    private ProjectInstance CreateProjectInstance(string projectPath, IDictionary<string, string> globalProperties, ProjectCollection projectCollection)
+    private ProjectInstance CreateProjectInstance(string solutionPath, IDictionary<string, string> globalProperties, ProjectCollection projectCollection)
     {
         // Always normalize the path (as we use it for mapping)
-        projectPath = FileUtilities.NormalizePath(projectPath);
+        solutionPath = FileUtilities.NormalizePath(solutionPath);
 
         // Need to lock as ProjectGraph can call this callback from multiple threads
         ProjectState projectState;
         lock (_projectStates)
         {
-            if (!_projectStates.TryGetValue(projectPath, out projectState))
+            if (!_projectStates.TryGetValue(solutionPath, out projectState!))
             {
                 projectState = new ProjectState(this);
-                _projectStates[projectPath] = projectState;
+                _projectStates[solutionPath] = projectState;
             }
         }
 
         //var project = new Project(projectPath, globalProperties, projectCollection.DefaultToolsVersion, projectCollection);
         //projectState.ProjectInstance = project.CreateProjectInstance(); //new ProjectInstance(project.Xml, globalProperties, project.ToolsVersion, projectCollection);
 
-        var xml = ProjectRootElement.Open(projectPath, projectCollection);
+        var xml = ProjectRootElement.Open(solutionPath, projectCollection);
+        if (xml is null) throw new InvalidOperationException($"Unable to open solution {solutionPath}");
         var instance = new ProjectInstance(xml, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection, ProjectLoadSettings.RecordEvaluatedItemElements);
         projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead);
 
@@ -222,7 +218,7 @@ public partial class ProjectGroup : IDisposable
         //var instance = projectState.ProjectInstance;
         //var check = instance.ExpandString("$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)");
 
-        return projectState.ProjectInstance;
+        return instance;
     }
 
     public (Project, ProjectInstance) ReloadProject(Project project)
@@ -247,7 +243,26 @@ public enum ProjectGroupStatus
     ErrorSolutionFileNotFound,
 }
 
-public record ProjectGroupState(ProjectGroupStatus Status)
+public record struct ProjectGroupState
 {
-    public IReadOnlyCollection<ProjectGraphNode> ProjectsToBuild { get; init; }
+    public ProjectGroupState(ProjectGroupStatus status)
+    {
+        Status = status;
+        ProjectsToBuild = Enumerable.Empty<ProjectGraphNode>();
+    }
+
+    public ProjectGroupState(ProjectGroupStatus status, IEnumerable<ProjectGraphNode> projectsToBuild)
+    {
+        Status = status;
+        ProjectsToBuild = projectsToBuild;
+    }
+
+    public ProjectGroupStatus Status { get; }
+
+    public IEnumerable<ProjectGraphNode> ProjectsToBuild { get; init; }
+
+    public static implicit operator ProjectGroupState(ProjectGroupStatus status)
+    {
+        return new ProjectGroupState(status);
+    }
 }
