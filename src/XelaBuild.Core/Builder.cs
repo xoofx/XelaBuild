@@ -293,6 +293,7 @@ public partial class Builder : IDisposable
 
         var parameters = new BuildParameters(projectCollection)
         {
+            NodeExeLocation = Path.Combine(AppContext.BaseDirectory, "XelaBuild.dll"),
             Loggers = loggers,
             DisableInProcNode = false,
             EnableNodeReuse = true,

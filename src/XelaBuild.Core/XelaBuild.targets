@@ -4,6 +4,7 @@
   <PropertyGroup>
     <XelaBuildInputsCacheFile Condition="'$(XelaBuildInputsCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildInputs.cache</XelaBuildInputsCacheFile>
     <XelaBuildResultCacheFile Condition="'$(XelaBuildResultCacheFile)' == ''">$(IntermediateOutputPath)$(MSBuildProjectFile).XelaBuildResult.cache</XelaBuildResultCacheFile>
+    <XelaBuildInputsPropsFile Condition="'$(XelaBuildInputsPropsFile)' == ''">$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).xelabuild.inputs.props</XelaBuildInputsPropsFile>
   </PropertyGroup>
 
   <!--Inputs="@(AdditionalFiles);@(Analyzer);@(Compile);@(DocFileItem);@(EditorConfigFiles);@(EmbeddedFiles);@(LinkResource);@(ReferencePathWithRefAssemblies)" 
@@ -18,7 +19,12 @@
       <_XelaBuildInputItems Include="@(EmbeddedFiles)"/>
       <_XelaBuildInputItems Include="@(LinkResource)"/>
     </ItemGroup>
-    <XelaBuildInputsCacheBuilder ProjectFolder="$(MSBuildProjectDirectory)" InputItems="@(_XelaBuildInputItems)" AssemblyReferences="@(ReferencePathWithRefAssemblies)" Analyzers="@(Analyzer)" OutputCacheFolder="$(XelaBuildCacheDir)" OutputCacheFile="$(XelaBuildInputsCacheFile)">
+    <XelaBuildInputsCacheBuilder ProjectFolder="$(MSBuildProjectDirectory)" 
+                                 InputItems="@(_XelaBuildInputItems)" 
+                                 AssemblyReferences="@(ReferencePathWithRefAssemblies)"
+                                 Analyzers="@(Analyzer)"
+                                 OutputCacheFolder="$(XelaBuildCacheDir)"
+                                 OutputCacheFile="$(XelaBuildInputsCacheFile)">
       <Output TaskParameter="IntermediateInputs" ItemName="_XelaBuildIntermediateInputFiles" />
     </XelaBuildInputsCacheBuilder>
     <ItemGroup>

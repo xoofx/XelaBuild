@@ -4,7 +4,15 @@ using XelaBuild.Core.Helpers;
 
 //var clock = Stopwatch.StartNew();
 MsBuildHelper.RegisterCustomMsBuild();
-var builderApp = new BuilderApp();
-var exitCode = builderApp.Run(args);
+int exitCode;
+if (MsBuildHelper.IsCommandLineArgsForMsBuild(args))
+{
+    exitCode = MsBuildHelper.Run(args);
+}
+else
+{
+    var builderApp = new BuilderApp();
+    exitCode = builderApp.Run(args);
+}
 Environment.ExitCode = exitCode;
 //Console.WriteLine($"Elapsed: {clock.Elapsed.TotalMilliseconds}ms");

@@ -13,15 +13,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="6.0.0" />
     <PackageReference Include="Mono.Options" Version="6.12.0.148" />
     <PackageReference Include="NLog" Version="4.7.13" />
-    <PackageReference Include="NuGet.Build.Tasks" Version="6.1.0-preview.1.62" />
-    <PackageReference Include="NuGet.Frameworks" Version="6.1.0-preview.1.62" />
-    <PackageReference Include="NuGet.Versioning" Version="6.1.0-preview.1.62" />
     <ProjectReference Include="..\..\ext\msbuild\src\Build\Microsoft.Build.csproj" />
     <ProjectReference Include="..\..\ext\msbuild\src\Framework\Microsoft.Build.Framework.csproj" />
-
-    <Content Include="$(NuGetPackageRoot)nuget.build.tasks\6.0.0\runtimes\any\native\**" Visible="false">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <ProjectReference Include="..\..\ext\msbuild\src\MSBuild\MSBuild.csproj" />
   </ItemGroup>
 
   <ItemGroup>
