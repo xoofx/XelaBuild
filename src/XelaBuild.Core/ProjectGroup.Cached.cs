@@ -18,6 +18,31 @@ public partial class ProjectGroup
 {
 
 
+    private bool CheckIfNeedsRestoreForImports(CachedFileSystem fs)
+    {
+        Debug.Assert(_cachedProjectGroup != null, nameof(_cachedProjectGroup) + " != null");
+        var cachedReference = new HashSet<CachedImportFileReference>();
+        // If any projects or imports was changed on the disk, it requires a reload
+        foreach (var project in _cachedProjectGroup.Projects)
+        {
+            var projectLastWriteTime = fs.GetLastWriteTimeUtc(project.File.FullPath);
+            if (project.File.LastWriteTime != projectLastWriteTime) return true;
+
+            foreach (var import in project.Imports)
+            {
+                if (!cachedReference.Add(import)) continue;
+
+                var importLastWriteTime = fs.GetLastWriteTimeUtc(import.FullPath);
+                if (import.LastWriteTime != importLastWriteTime)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void InitializeGraphFromCachedProjectGroup()
     {
         _cachedProjectGroup = CachedProjectGroup.ReadFromFile(IndexCacheFilePath);

@@ -78,6 +78,7 @@ public class CachedProject : IBinaryTransferable<CachedProject>
     public List<CachedProjectReference> ProjectReferences { get; }
     public List<CachedProject> ProjectDependencies { get; }
     public List<CachedImportFileReference> Imports { get; }
+    public Hash128 HashImports;
     public List<CachedProjectReferenceTargets> ProjectReferenceTargets { get; }
     
     public CachedProject Read(BinaryTransferReader reader)
@@ -96,6 +97,7 @@ public class CachedProject : IBinaryTransferable<CachedProject>
         reader.ReadObjectsToList(ProjectReferences);
         reader.ReadObjectsToList(ProjectDependencies);
         reader.ReadObjectsToList(Imports);
+        HashImports = reader.ReadStruct(HashImports);
         reader.ReadObjectsToList(ProjectReferenceTargets);
         return this;
     }
@@ -115,6 +117,7 @@ public class CachedProject : IBinaryTransferable<CachedProject>
         writer.WriteObjectsFromList(ProjectReferences);
         writer.WriteObjectsFromList(ProjectDependencies);
         writer.WriteObjectsFromList(Imports);
+        writer.WriteStruct(HashImports);
         writer.WriteObjectsFromList(ProjectReferenceTargets);
     }
 

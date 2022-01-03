@@ -100,6 +100,14 @@ public partial class ProjectGroup : IDisposable
         }
 
         InitializeGraphFromCachedProjectGroup();
+
+        var fs = new CachedFileSystem();
+
+        // If any imports were modified, requires a restore
+        if (CheckIfNeedsRestoreForImports(fs))
+        {
+            return new ProjectGroupState(ProjectGroupStatus.Restore);
+        }
         
         return new ProjectGroupState(ProjectGroupStatus.Build);
     }

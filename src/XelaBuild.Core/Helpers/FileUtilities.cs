@@ -21,11 +21,10 @@ internal class FileUtilities
         return string.IsNullOrEmpty(path) || Path.DirectorySeparatorChar == '\\' ? path : path.Replace('\\', '/'); ;
     }
 
-    public static DateTime GetLastModifiedTimeUtc(string filePath)
+    public static DateTime GetLastWriteTimeUtc(string filePath)
     {
         var fileInfo = GetFileInfoNoThrow(filePath);
-        if (fileInfo == null) return DateTime.MinValue;
-        return fileInfo.LastWriteTimeUtc;
+        return fileInfo?.LastWriteTimeUtc ?? DateTime.MaxValue;
     }
 
     /// <summary>

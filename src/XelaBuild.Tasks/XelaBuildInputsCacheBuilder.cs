@@ -180,7 +180,7 @@ public class XelaBuildInputsCacheBuilder : Task
             // Update the hash of the group, use XOR to avoid having to sort items
             assemblyGroup.Hash1 ^= hash1;
             assemblyGroup.Hash2 ^= hash2;
-            var item = new CachedFileReference(itemspec, FileUtilities.GetLastModifiedTimeUtc(itemspec));
+            var item = new CachedFileReference(itemspec, FileUtilities.GetLastWriteTimeUtc(itemspec));
             if (item.LastWriteTime > assemblyGroup.MaxModifiedTime)
             {
                 assemblyGroup.MaxModifiedTime = item.LastWriteTime;
