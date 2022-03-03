@@ -11,6 +11,7 @@
     <Compile Include="..\XelaBuild.Core\Helpers\HexHelper.cs" Link="Helpers\HexHelper.cs" />
     <Compile Include="..\XelaBuild.Core\Helpers\SpookyHash.cs" Link="Helpers\SpookyHash.cs" />
     <Compile Include="..\XelaBuild.Core\Caching\*.cs" Link="Caching\%(Filename)" />
+    <Compile Include="..\XelaBuild.Core\Hash128.cs" Link="Caching\%(Filename)" />
     <Compile Include="..\XelaBuild.Core\Serialization\*.cs" Link="Serialization\%(Filename)" />
   </ItemGroup>
 
