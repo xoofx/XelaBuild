@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Graph;
 using XelaBuild.Core.Caching;
@@ -22,7 +23,7 @@ public class ProjectState
 
     public CachedProject CachedProject;
 
-    public DateTime ProjectInstanceLastWriteTimeWhenRead { get; private set; }
+    public DateTime ProjectInstanceLastWriteTimeWhenReadUtc { get; private set; }
 
     public ProjectInstance? ProjectInstance { get; private set; }
 
@@ -32,9 +33,10 @@ public class ProjectState
 
     public DateTime LastResultTime;
 
-    public void InitializeFromProjectInstance(ProjectInstance instance, DateTime lastWriteTimeWhenRead)
+    public void InitializeFromProjectInstance(ProjectInstance instance, DateTime lastWriteTimeWhenReadUtc)
     {
-        ProjectInstanceLastWriteTimeWhenRead = lastWriteTimeWhenRead;
+        Debug.Assert(lastWriteTimeWhenReadUtc.Kind == DateTimeKind.Utc);
+        ProjectInstanceLastWriteTimeWhenReadUtc = lastWriteTimeWhenReadUtc;
         ProjectInstance = instance;
         Restored = instance.GetPropertyValue("RestoreSuccess")?.ToLowerInvariant() == "true";
     }

@@ -25,7 +25,7 @@ public partial class ProjectGroup : IDisposable
     private readonly Builder _builder;
     private readonly Dictionary<string, ProjectState> _projectStates;
     private ProjectGraph? _projectGraph;
-    private DateTime _solutionLastWriteTimeWhenRead;
+    private DateTime _solutionLastWriteTimeWhenReadUtc;
     private CachedProjectGroup? _cachedProjectGroup;
 
     internal ProjectGroup(Builder builder, IReadOnlyDictionary<string, string> globalProperties)
@@ -89,7 +89,7 @@ public partial class ProjectGroup : IDisposable
         // If the cache file does not exists or the solution changed
         // we need to reload it entirely
         var indexCacheFileInfo = FileUtilities.GetFileInfoNoThrow(IndexCacheFilePath);
-        if (indexCacheFileInfo == null || _solutionLastWriteTimeWhenRead > indexCacheFileInfo.LastWriteTimeUtc)
+        if (indexCacheFileInfo == null || _solutionLastWriteTimeWhenReadUtc > indexCacheFileInfo.LastWriteTimeUtc)
         {
             // Delete the previous cache file if we need to recompute it anyway
             if (indexCacheFileInfo != null && indexCacheFileInfo.Exists)
@@ -144,7 +144,7 @@ public partial class ProjectGroup : IDisposable
         _projectGraph = null;
         _cachedProjectGroup = null;
         _projectStates.Clear();
-        _solutionLastWriteTimeWhenRead = DateTime.MinValue;
+        _solutionLastWriteTimeWhenReadUtc = DateTime.MinValue;
         if (_projectCollection.Count > 0)
         {
             _projectCollection.UnloadAllProjects();
@@ -163,7 +163,7 @@ public partial class ProjectGroup : IDisposable
         Restored = true;
         try
         {
-            _solutionLastWriteTimeWhenRead = File.GetLastWriteTimeUtc(entryPoint.ProjectFile);
+            _solutionLastWriteTimeWhenReadUtc = File.GetLastWriteTimeUtc(entryPoint.ProjectFile);
             _projectGraph = new ProjectGraph(new[] {entryPoint}, _projectCollection, CreateProjectInstance, parallelism, CancellationToken.None);
         }
         catch
@@ -217,7 +217,7 @@ public partial class ProjectGroup : IDisposable
         var xml = ProjectRootElement.Open(solutionPath, projectCollection);
         if (xml is null) throw new InvalidOperationException($"Unable to open solution {solutionPath}");
         var instance = new ProjectInstance(xml, globalProperties, projectCollection.DefaultToolsVersion, null, projectCollection, ProjectLoadSettings.RecordEvaluatedItemElements);
-        projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead);
+        projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead.ToUniversalTime());
 
         if (!projectState.Restored)
         {

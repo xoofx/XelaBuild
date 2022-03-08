@@ -57,7 +57,7 @@ public partial class ProjectGroup
         Restored = true;
         try
         {
-            _solutionLastWriteTimeWhenRead = File.GetLastWriteTimeUtc(entryPoint.ProjectFile);
+            _solutionLastWriteTimeWhenReadUtc = File.GetLastWriteTimeUtc(entryPoint.ProjectFile);
             _projectGraph = new ProjectGraph(new[] { entryPoint }, _projectCollection, CreateProjectInstanceFromCachedProjectGroup, parallelism, CancellationToken.None);
         }
         catch
@@ -135,7 +135,7 @@ public partial class ProjectGroup
             }
         }
         instance.DefaultTargets.Add("Build");
-        projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead);
+        projectState.InitializeFromProjectInstance(instance, xml.LastWriteTimeWhenRead.ToUniversalTime());
 
         if (!projectState.Restored)
         {
@@ -154,7 +154,7 @@ public partial class ProjectGroup
         var context = new CachedContext();
 
         cachedProjectGroup.SolutionFile.FullPath = _builder.Config.SolutionFilePath;
-        cachedProjectGroup.SolutionFile.LastWriteTime = _solutionLastWriteTimeWhenRead;
+        cachedProjectGroup.SolutionFile.LastWriteTime = _solutionLastWriteTimeWhenReadUtc;
 
         // Reinitialize CachedProject instances, as they need to be reference-able up-front
         Debug.Assert(_projectGraph != null, nameof(_projectGraph) + " != null");
@@ -188,7 +188,7 @@ public partial class ProjectGroup
         {
             if (!_imports.TryGetValue(importInstance, out var cachedImportFileReference))
             {
-                cachedImportFileReference = new CachedImportFileReference(importInstance.FullPath, importInstance.LastWriteTimeWhenRead);
+                cachedImportFileReference = new CachedImportFileReference(importInstance.FullPath, importInstance.LastWriteTimeWhenRead.ToUniversalTime());
                 _imports.Add(importInstance, cachedImportFileReference);
             }
 
@@ -221,7 +221,7 @@ public partial class ProjectGroup
 
         //public CachedFileReference File;
         cachedProject.File.FullPath = project.FullPath;
-        cachedProject.File.LastWriteTime = this.FindProjectState(node).ProjectInstanceLastWriteTimeWhenRead;
+        cachedProject.File.LastWriteTime = this.FindProjectState(node).ProjectInstanceLastWriteTimeWhenReadUtc;
 
         //public List<CachedGlobItem> Globs { get; }
         FillGlobsFromProjectInstance(project, cachedProject.Globs);
